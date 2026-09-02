@@ -140,9 +140,10 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "BLE"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
-# The public API surface is grouped by subsystem with explanatory comments,
-# which reads better than one flat alphabetical list.
+# These public API surfaces are grouped by subsystem with explanatory
+# comments, which reads better than one flat alphabetical list.
 "src/security_assistant/core/__init__.py" = ["RUF022"]
+"src/security_assistant/osint/__init__.py" = ["RUF022"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -172,5 +173,8 @@ module = [
     "playwright.*",
     "neo4j.*",
     "psutil.*",
+    "dns.*",
+    "phonenumbers.*",
+    "httpx.*",
 ]
 ignore_missing_imports = true
