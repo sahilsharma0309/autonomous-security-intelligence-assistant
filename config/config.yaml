@@ -1,0 +1,28 @@
+# Default runtime configuration for the Autonomous Security & Intelligence
+# Assistant. Secrets belong in .env, not here.
+
+environment: development
+log_level: INFO
+
+osint:
+  rate_limit_per_min: 30
+  collectors:
+    - domains
+    - subdomains
+    - breach_exposure
+
+iot_recon:
+  scan_timeout_seconds: 30
+  max_concurrent_hosts: 50
+
+threat_scanner:
+  feeds:
+    - name: nvd
+      enabled: true
+    - name: internal
+      enabled: false
+
+network:
+  vpn:
+    provider: ""
+    kill_switch: true
