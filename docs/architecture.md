@@ -102,8 +102,15 @@ autonomous-security-intelligence-assistant/
 │   │   │   └── social_collector.py              username footprinting hooks
 │   │   └── engine.py                   [legacy]  superseded by the collectors
 │   │
-│   ├── iot_recon/                      Module 3 — IoT & Asset Discovery
-│   │   ├── scanner.py                  [built]   placeholder
+│   ├── iot/                            [built]  Module 3 — IoT & Asset Recon
+│   │   ├── __init__.py                          public API surface
+│   │   ├── models.py                            devices/services + graph projection
+│   │   ├── fingerprints.py                      port/banner -> device classification
+│   │   ├── shodan_client.py                     async index client, rate-limited
+│   │   ├── stream_discovery.py                  connect scan, banners, exposure
+│   │   └── tools.py                             @tool registrations
+│   ├── iot_recon/                      Module 3 — superseded
+│   │   ├── scanner.py                  [legacy]  placeholder
 │   │   ├── shodan_client.py            [planned] Shodan/IoT search integration
 │   │   ├── port_scan.py                [planned] async TCP connect scanning
 │   │   ├── banner.py                   [planned] service/banner fingerprinting
@@ -334,3 +341,67 @@ review instead of merged.
 The graph keeps its own adjacency index rather than holding a NetworkX object
 as the source of truth, so it works without the optional extra and so
 merge-on-insert semantics stay explicit.
+
+## Module 3 — IoT & Asset Reconnaissance
+
+### First-class asset nodes
+
+`EntityType` gains `IOT_DEVICE` and `NETWORK_SERVICE`, with four new edges:
+`EXPOSES_SERVICE`, `RUNS_ON`, `SERVICE_ON`, `MANUFACTURED_BY`.
+
+Making assets graph nodes rather than a separate inventory is what lets IoT and
+OSINT findings meet. Both attach to the shared `ip_address` node, so a camera
+discovered at `192.0.2.10` and a domain whose A record points there are
+connected with no cross-module wiring:
+
+```
+iot_device:192.0.2.10 ──RUNS_ON──> ip_address:192.0.2.10 <──RESOLVES_TO── domain:example.com
+        │
+        └──EXPOSES_SERVICE──> network_service:192.0.2.10:554/rtsp
+```
+
+"Whose exposed camera is this?" becomes a graph traversal.
+
+Service identity is `host:port/protocol`. IPv6 hosts stay bracketed
+(`[2001:db8::1]:554/rtsp`) so the canonical form re-parses to itself.
+
+### Risk classification
+
+| Tool | Risk | Why |
+|---|---|---|
+| `iot.shodan_host` | PASSIVE | Queries the index; never the target |
+| `iot.shodan_search` | PASSIVE | Same, for a query |
+| `iot.scan` | ACTIVE | TCP connect + banner grab |
+| `iot.stream_probe` | ACTIVE | HEAD/OPTIONS against HTTP/RTSP |
+| `iot.control_port_probe` | INTRUSIVE | Touches PLC/BAS control ports at all |
+
+The last is why `INTRUSIVE` exists. A default `ACTIVE` engagement will not run
+it — enforced by the dispatcher, with tests proving the gate holds.
+
+### What the scanner puts on the wire
+
+Three deliberate restraints, each pinned by tests:
+
+- **HTTP gets `HEAD`, never `GET`.** Status and headers are enough to tell
+  whether authentication is enforced; no page body is retrieved.
+- **RTSP gets `OPTIONS`, never `DESCRIBE` or `PLAY`.** The capability
+  handshake establishes that an endpoint exists and whether it challenges for
+  credentials. No media session is ever opened. "This camera is reachable with
+  no credentials" is the entire finding; watching the feed adds nothing to the
+  assessment and is the part that harms the people in front of the lens.
+- **Control ports receive zero bytes.** Modbus/S7/DNP3/BACnet get a TCP
+  connect and an immediate close. Malformed input to a PLC has physical
+  consequences, so the module never speaks those protocols.
+
+### Confidence reflects provenance
+
+A completed TCP connect is `OBSERVED`. A vendor or model read out of a banner
+is at most `STRONG` — banners are self-reported and trivially spoofed. Anything
+from the Shodan index is `MODERATE` and carries the index timestamp, because it
+reports what Shodan last saw, not what is true now.
+
+### Credentials
+
+`SHODAN_API_KEY` is read from the environment at call time, never passed as a
+tool argument — an argument would land in plan structures, audit records and
+logs. The key is redacted from every error message and `repr`.

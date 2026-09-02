@@ -51,10 +51,13 @@ __all__ = [
     "Observation",
     "Relationship",
     "combine_confidence",
+    "normalize_device",
     "normalize_domain",
     "normalize_email",
+    "normalize_host",
     "normalize_organization",
     "normalize_phone",
+    "normalize_service",
     "normalize_social_handle",
 ]
 
@@ -75,7 +78,14 @@ _ORG_SUFFIXES = frozenset(
 
 
 class EntityType(StrEnum):
-    """The kinds of node the OSINT graph holds."""
+    """The kinds of node the graph holds.
+
+    The first six are OSINT entities. ``IOT_DEVICE`` and ``NETWORK_SERVICE``
+    are first-class asset nodes so that discovered infrastructure correlates
+    with OSINT findings directly -- a camera at ``192.0.2.10`` and a domain
+    resolving to that same address meet at the shared ``ip_address`` node
+    rather than living in two disconnected inventories.
+    """
 
     EMAIL = "email"
     PHONE = "phone"
@@ -83,6 +93,8 @@ class EntityType(StrEnum):
     IP_ADDRESS = "ip_address"
     SOCIAL_HANDLE = "social_handle"
     ORGANIZATION = "organization"
+    IOT_DEVICE = "iot_device"
+    NETWORK_SERVICE = "network_service"
 
 
 class EdgeType(StrEnum):
@@ -120,6 +132,18 @@ class EdgeType(StrEnum):
 
     USES_EMAIL = "uses_email"
     """organization -> email."""
+
+    EXPOSES_SERVICE = "exposes_service"
+    """iot_device -> network_service (an open, reachable port)."""
+
+    RUNS_ON = "runs_on"
+    """iot_device -> ip_address (the address the device answers on)."""
+
+    SERVICE_ON = "service_on"
+    """network_service -> ip_address (where the service is reachable)."""
+
+    MANUFACTURED_BY = "manufactured_by"
+    """iot_device -> organization (vendor inferred from a banner)."""
 
     SAME_AS = "same_as"
     """Entity resolution: two nodes are believed to be the same real thing."""
@@ -321,11 +345,99 @@ def normalize_organization(value: str) -> str:
     return " ".join(tokens)
 
 
+def normalize_host(value: str) -> str:
+    """Canonicalize something that is either an IP address or a hostname.
+
+    Assets are addressed both ways depending on how they were discovered, so
+    device and service identities go through one helper that picks the right
+    normalization rather than guessing per call site.
+
+    >>> normalize_host("2001:0db8:0000::0001")
+    '2001:db8::1'
+    >>> normalize_host("Camera.Example.COM.")
+    'camera.example.com'
+    """
+    text = value.strip().strip("[]")
+    if not text:
+        raise ValueError("Host must not be empty")
+    try:
+        return _normalize_ip(text)
+    except ValueError:
+        return normalize_domain(text)
+
+
+def normalize_device(value: str) -> str:
+    """Canonicalize an IoT device identity.
+
+    A device is identified by the address it answers on, so two collectors
+    that find the same camera -- one via Shodan, one via a direct scan --
+    produce one node.
+    """
+    return normalize_host(value)
+
+
+def normalize_service(value: str) -> str:
+    """Canonicalize a network service as ``host:port/protocol``.
+
+    Accepts ``host:port``, ``host:port/proto``, and bracketed IPv6
+    (``[2001:db8::1]:554/rtsp``). The protocol defaults to ``tcp`` because a
+    bare ``host:port`` overwhelmingly means TCP in this context; recording it
+    explicitly keeps UDP services from silently colliding with TCP ones on the
+    same port.
+
+    An IPv6 host stays bracketed in the canonical form, so the result parses
+    back to itself -- without that, ``2001:db8::1:554/rtsp`` is ambiguous
+    about where the address ends and the port begins.
+
+    >>> normalize_service("192.0.2.10:554/RTSP")
+    '192.0.2.10:554/rtsp'
+    >>> normalize_service("192.0.2.10:80")
+    '192.0.2.10:80/tcp'
+    >>> normalize_service("[2001:0db8::1]:554/rtsp")
+    '[2001:db8::1]:554/rtsp'
+    """
+    text = value.strip()
+    if not text:
+        raise ValueError("Service must not be empty")
+
+    protocol = "tcp"
+    if "/" in text:
+        text, _, raw_protocol = text.rpartition("/")
+        protocol = raw_protocol.strip().lower() or "tcp"
+
+    # Bracketed IPv6 keeps its colons out of the host:port split.
+    if text.startswith("["):
+        end = text.find("]")
+        if end == -1:
+            raise ValueError(f"Unterminated IPv6 literal in service {value!r}")
+        host, remainder = text[1:end], text[end + 1 :]
+        port_text = remainder.lstrip(":")
+    else:
+        host, _, port_text = text.rpartition(":")
+        if not host:  # No colon at all.
+            raise ValueError(f"Service {value!r} must include a port")
+
+    if not port_text.isdigit():
+        raise ValueError(f"Service {value!r} has a non-numeric port {port_text!r}")
+    port = int(port_text)
+    if not 1 <= port <= 65535:
+        raise ValueError(f"Service {value!r} port out of range: {port}")
+
+    normalized_host = normalize_host(host)
+    # An IPv6 address must stay bracketed or the canonical form cannot be
+    # re-parsed: the colons would be indistinguishable from the port separator.
+    if ":" in normalized_host:
+        normalized_host = f"[{normalized_host}]"
+    return f"{normalized_host}:{port}/{protocol}"
+
+
 _NORMALIZERS = {
     EntityType.DOMAIN: normalize_domain,
     EntityType.EMAIL: normalize_email,
     EntityType.PHONE: normalize_phone,
     EntityType.ORGANIZATION: normalize_organization,
+    EntityType.IOT_DEVICE: normalize_device,
+    EntityType.NETWORK_SERVICE: normalize_service,
 }
 
 
