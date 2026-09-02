@@ -89,13 +89,18 @@ autonomous-security-intelligence-assistant/
 │   │   ├── settings.py
 │   │   └── loader.py
 │   │
-│   ├── osint/                          Module 2 — OSINT & Entity Graph
-│   │   ├── engine.py                   [built]   placeholder, to be rebuilt as tools
-│   │   ├── collectors/                 [planned] dns, whois, tls, subdomains,
-│   │   │                                         username, email, phone, breach
-│   │   ├── graph/                      [planned] entity/edge schema, NetworkX +
-│   │   │                                         Neo4j backends, export
-│   │   └── tools.py                    [planned] @tool wrappers over collectors
+│   ├── osint/                          [built]  Module 2 — OSINT & Entity Graph
+│   │   ├── __init__.py                          public API surface
+│   │   ├── models.py                            Entity/Relationship + canonicalization
+│   │   ├── graph.py                             EntityGraph + NetworkX/Neo4j/JSON export
+│   │   ├── correlator.py                        entity resolution + link inference
+│   │   ├── collectors/
+│   │   │   ├── base.py                          injectable provider plumbing
+│   │   │   ├── dns_collector.py                 A/AAAA/MX/NS/TXT/CNAME
+│   │   │   ├── whois_collector.py               registration metadata
+│   │   │   ├── tls_collector.py                 certificate chain + SANs
+│   │   │   └── social_collector.py              username footprinting hooks
+│   │   └── engine.py                   [legacy]  superseded by the collectors
 │   │
 │   ├── iot_recon/                      Module 3 — IoT & Asset Discovery
 │   │   ├── scanner.py                  [built]   placeholder
@@ -139,8 +144,13 @@ autonomous-security-intelligence-assistant/
 │   │   ├── test_core_planner.py        [built]
 │   │   ├── test_core_agent.py          [built]
 │   │   ├── test_core_orchestrator.py   [built]
+│   │   ├── test_osint_models.py        [built]
+│   │   ├── test_osint_graph.py         [built]
+│   │   ├── test_osint_collectors.py    [built]
+│   │   ├── test_osint_correlator.py    [built]
 │   │   └── test_orchestrator.py        [built]   legacy pipeline
 │   └── integration/
+│       ├── test_osint_pipeline.py      [built]   core + OSINT end to end
 │       └── test_pipeline.py            [built]
 │
 ├── config/
@@ -250,3 +260,77 @@ against assets the operator owns or has explicit written permission to test. The
 `AuthorizationScope` gate exists to make that boundary enforceable in code rather
 than a line in a README, but it is a safeguard, not a substitute for having
 permission in the first place.
+
+## Module 2 — OSINT & Entity Graph
+
+### Entity model
+
+Six node types (`EntityType`): `DOMAIN`, `IP_ADDRESS`, `EMAIL`, `PHONE`,
+`SOCIAL_HANDLE`, `ORGANIZATION`. Thirteen typed edges (`EdgeType`) connect
+them, from `RESOLVES_TO` and `MAIL_HANDLED_BY` through `REGISTERED_BY`,
+`SECURES` and `SAME_AS`.
+
+Every entity and relationship carries **provenance** (which tool observed it,
+when, with what detail) and a **confidence score**. Corroborating observations
+are combined with a noisy-OR: two independent sources at 0.6 give 0.84 — more
+than either alone, never reaching certainty.
+
+**Canonicalization does the easy half of deduplication.** Each type defines one
+canonical form, and the entity key is `type:canonical`. `Example.COM.` and
+`example.com` therefore produce the same node by construction, so merging
+duplicate observations is a dictionary lookup rather than a similarity search.
+Organization names additionally strip legal suffixes (`Acme, Inc.` → `acme`)
+and accents, so only genuinely ambiguous cases reach the correlator.
+
+### Collectors
+
+| Tool | Risk | Produces | Contacts the target? |
+|---|---|---|---|
+| `osint.whois` | PASSIVE | `registration`, `contacts` | No — registry only |
+| `osint.dns` | ACTIVE | `hosts`, `dns_records` | Possibly — may reach its NS |
+| `osint.tls` | ACTIVE | `certificates`, `sans` | Yes — TLS handshake |
+| `osint.social` | ACTIVE | `handles` | Yes — profile URLs |
+
+A passive-only engagement therefore plans WHOIS alone; the other three are
+never selected and would be denied by the dispatcher if invoked directly.
+
+All I/O goes through injectable providers looked up in `ToolContext.config`
+(`dns_resolver`, `whois_client`, `tls_fetcher`, `profile_probe`), which is what
+lets the entire module be tested with no network access and no optional
+dependencies installed.
+
+`osint.social` ships with **no platforms configured**. Username enumeration is
+the part of OSINT most easily turned against an individual, so the operator
+must register platform hooks explicitly; with none registered the tool returns
+an empty result and says so. It is scope-gated on the engagement domain rather
+than the handle, which ties any footprinting to a declared authorization.
+
+### Correlation
+
+Two distinct jobs, deliberately not conflated:
+
+- **Entity resolution** decides when two *nodes* are the same thing —
+  organizations differing beyond normalization, `www.` aliases, handles
+  restating an email. Each candidate carries scored evidence and a rationale.
+- **Link inference** decides when two nodes are *related* — subdomain
+  containment, shared hosting, an email matching a known domain.
+
+Both are biased toward missing a match over inventing one, because a false
+merge silently fuses two organizations' infrastructure and corrupts every later
+conclusion. Concretely: candidates scoring ≥ 0.85 merge, ≥ 0.6 are surfaced for
+review rather than applied, certificate issuers and registrars are never merged
+(they appear across unrelated targets), public email providers are not treated
+as ownership evidence, high fan-out IPs are treated as shared hosting, and a
+`www.` alias resolving to a *different* address than its apex is flagged for
+review instead of merged.
+
+### Exports
+
+- `to_networkx()` — a real `nx.MultiDiGraph` for algorithms and visualization.
+- `to_cypher()` — parameterized, idempotent Neo4j `MERGE` statements. Entity
+  values are always parameters, never interpolated into query text.
+- `to_json()` / `from_json()` — lossless round-trip including provenance.
+
+The graph keeps its own adjacency index rather than holding a NetworkX object
+as the source of truth, so it works without the optional extra and so
+merge-on-insert semantics stay explicit.
