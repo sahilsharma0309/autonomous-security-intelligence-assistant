@@ -1,31 +1,176 @@
 [tool.poetry]
 name = "autonomous-security-intelligence-assistant"
-version = "0.1.0"
+version = "0.2.0"
 description = "Autonomous Security & Intelligence Assistant: OSINT, IoT recon, threat scanning, and network/VPN orchestration for authorized security assessments."
 authors = ["Sahil Sharma <sahilvashisth27@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "security_assistant", from = "src" }]
 
+# ---------------------------------------------------------------------------
+# Dependencies
+#
+# `security_assistant.core` (the agent engine) deliberately depends on nothing
+# beyond the standard library, so it imports and tests cleanly anywhere. Every
+# third-party package below belongs to a feature module and is declared
+# optional, grouped into the extras further down. Install only what you need:
+#
+#     poetry install                 # core engine + app scaffolding only
+#     poetry install -E osint -E iot # add the OSINT and IoT modules
+#     poetry install -E all          # everything
+# ---------------------------------------------------------------------------
 [tool.poetry.dependencies]
 python = "^3.11"
+
+# --- Application scaffolding (config, CLI, logging, HTTP) ---
 pyyaml = "^6.0"
-requests = "^2.32"
 python-dotenv = "^1.0"
 pydantic = "^2.8"
+pydantic-settings = "^2.4"
+httpx = "^0.27"
+typer = "^0.12"
+rich = "^13.7"
+structlog = "^24.4"
+tenacity = "^9.0"
+
+# --- Module 2: OSINT & Entity Graph (optional) ---
+dnspython = { version = "^2.6", optional = true }
+python-whois = { version = "^0.9", optional = true }
+phonenumbers = { version = "^8.13", optional = true }
+email-validator = { version = "^2.2", optional = true }
+tldextract = { version = "^5.1", optional = true }
+networkx = { version = "^3.3", optional = true }
+beautifulsoup4 = { version = "^4.12", optional = true }
+neo4j = { version = "^5.24", optional = true }
+
+# --- Module 3: IoT & Asset Discovery (optional) ---
+shodan = { version = "^1.31", optional = true }
+python-nmap = { version = "^0.7", optional = true }
+
+# --- Module 4: Threat Intelligence & URL Scanner (optional) ---
+cryptography = { version = "^43.0", optional = true }
+pyopenssl = { version = "^24.2", optional = true }
+playwright = { version = "^1.47", optional = true }
+
+# --- Module 5: Network / VPN daemon (optional) ---
+psutil = { version = "^6.0", optional = true }
+
+# --- Vector memory backends (optional; core ships an in-memory fallback) ---
+numpy = { version = "^2.1", optional = true }
+chromadb = { version = "^0.5", optional = true }
+sentence-transformers = { version = "^3.1", optional = true }
+
+# --- LLM-backed planning (optional; core ships a rule-based planner) ---
+anthropic = { version = "^0.68", optional = true }
+
+[tool.poetry.extras]
+osint = [
+    "dnspython",
+    "python-whois",
+    "phonenumbers",
+    "email-validator",
+    "tldextract",
+    "networkx",
+    "beautifulsoup4",
+    "neo4j",
+]
+iot = ["shodan", "python-nmap"]
+threat = ["cryptography", "pyopenssl", "playwright"]
+network = ["psutil"]
+memory = ["numpy", "chromadb", "sentence-transformers"]
+llm = ["anthropic"]
+all = [
+    "dnspython",
+    "python-whois",
+    "phonenumbers",
+    "email-validator",
+    "tldextract",
+    "networkx",
+    "beautifulsoup4",
+    "neo4j",
+    "shodan",
+    "python-nmap",
+    "cryptography",
+    "pyopenssl",
+    "playwright",
+    "psutil",
+    "numpy",
+    "chromadb",
+    "sentence-transformers",
+    "anthropic",
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
 pytest-cov = "^5.0"
+pytest-asyncio = "^0.24"
 ruff = "^0.6"
 mypy = "^1.11"
+types-pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+security-assistant = "security_assistant.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `src` puts the package on the path without an editable install; `.` makes
+# `tests.unit.conftest` importable for shared fixtures.
+pythonpath = ["src", "."]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+# BLE is enabled deliberately: the supervisory boundaries (dispatcher, agent
+# run loop, orchestrator workers, event sinks) must catch broadly so one
+# failing tool cannot take down a whole run, but each such catch has to be
+# annotated with an explicit `# noqa: BLE001` justifying itself rather than
+# being waved through by a project-wide ignore.
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "BLE"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+# The public API surface is grouped by subsystem with explanatory comments,
+# which reads better than one flat alphabetical list.
+"src/security_assistant/core/__init__.py" = ["RUF022"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src"]
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+# Optional extras are not installed in the base environment (and several ship
+# no stubs), so their absence must not fail a type check of the core.
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "shodan.*",
+    "nmap.*",
+    "whois.*",
+    "networkx.*",
+    "tldextract.*",
+    "chromadb.*",
+    "sentence_transformers.*",
+    "playwright.*",
+    "neo4j.*",
+    "psutil.*",
+]
+ignore_missing_imports = true

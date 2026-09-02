@@ -1,0 +1,43 @@
+# Optional per-module dependencies.
+#
+# Install only the groups whose modules you have enabled. Each block maps to a
+# poetry extra of the same name (`poetry install -E osint`).
+#
+#     pip install -r requirements.txt -r requirements-modules.txt
+#
+# Several of these wrap external binaries or services that must be present and
+# authorized in their own right:
+#   * python-nmap requires the `nmap` binary on PATH.
+#   * shodan requires a SHODAN_API_KEY.
+#   * playwright requires `playwright install chromium` after pip install.
+#   * neo4j requires a reachable Neo4j instance (otherwise NetworkX is used).
+
+# --- Module 2: OSINT & Entity Graph ---
+dnspython>=2.6
+python-whois>=0.9
+phonenumbers>=8.13
+email-validator>=2.2
+tldextract>=5.1
+networkx>=3.3
+beautifulsoup4>=4.12
+neo4j>=5.24
+
+# --- Module 3: IoT & Asset Discovery ---
+shodan>=1.31
+python-nmap>=0.7
+
+# --- Module 4: Threat Intelligence & URL Deep Scanner ---
+cryptography>=43.0
+pyopenssl>=24.2
+playwright>=1.47
+
+# --- Module 5: Network / VPN daemon ---
+psutil>=6.0
+
+# --- Vector memory backends (core ships an in-memory fallback) ---
+numpy>=2.1
+chromadb>=0.5
+sentence-transformers>=3.1
+
+# --- LLM-backed planning (core ships a rule-based planner) ---
+anthropic>=0.68

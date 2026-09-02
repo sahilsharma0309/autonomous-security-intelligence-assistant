@@ -1,4 +1,20 @@
+# Runtime dependencies (pip mirror of pyproject.toml).
+#
+# NOTE: `security_assistant.core` -- the agent engine (orchestrator, dispatch,
+# planner, memory, authorization) -- depends on nothing outside the standard
+# library. Everything here belongs to the application layer or a feature
+# module. To run just the core engine and its tests, you need none of it.
+#
+# Per-module extras live in requirements-osint.txt, requirements-iot.txt, etc.,
+# so a deployment installs only the capabilities it actually enables.
+
+# --- Application scaffolding: config, CLI, logging, HTTP ---
 pyyaml>=6.0
-requests>=2.32
 python-dotenv>=1.0
 pydantic>=2.8
+pydantic-settings>=2.4
+httpx>=0.27
+typer>=0.12
+rich>=13.7
+structlog>=24.4
+tenacity>=9.0

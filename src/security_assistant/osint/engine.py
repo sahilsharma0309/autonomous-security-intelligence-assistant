@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class OSINTEngine:
     """Aggregates OSINT collectors behind a single interface."""
 
-    def gather(self, target: str) -> dict:
+    def gather(self, target: str) -> dict[str, Any]:
         """Run all configured collectors against the target and return a
         normalized result set.
         """
