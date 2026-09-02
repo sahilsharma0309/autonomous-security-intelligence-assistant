@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
-from security_assistant.osint.engine import OSINTEngine
 from security_assistant.iot_recon.scanner import IoTReconScanner
-from security_assistant.threat_scanner.scanner import ThreatScanner
 from security_assistant.network.vpn_daemon import VPNDaemon
+from security_assistant.osint.engine import OSINTEngine
+from security_assistant.threat_scanner.scanner import ThreatScanner
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class Orchestrator:
     threat_scanner: ThreatScanner = field(default_factory=ThreatScanner)
     vpn_daemon: VPNDaemon = field(default_factory=VPNDaemon)
 
-    def run_assessment(self, target: str) -> dict:
+    def run_assessment(self, target: str) -> dict[str, Any]:
         """Run a full assessment pipeline against an authorized target."""
         logger.info("Starting assessment for target=%s", target)
 

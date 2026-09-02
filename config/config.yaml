@@ -4,25 +4,97 @@
 environment: development
 log_level: INFO
 
+# ---------------------------------------------------------------------------
+# Engagement authorization -- the safety boundary.
+#
+# The dispatcher refuses every scope-gated tool whose target is not covered
+# here, and refuses any action above `max_risk`. An empty `allow` list
+# authorizes nothing; that is the intended default and the agent will simply
+# decline to do reconnaissance until a real scope is configured.
+#
+# `allow`/`deny` entries accept:
+#   example.com      apex plus subdomains
+#   *.example.com    subdomains only
+#   192.0.2.0/24     a CIDR range
+#   192.0.2.10       a single address
+#
+# `deny` always wins over `allow`.
+# ---------------------------------------------------------------------------
+engagement:
+  name: ""
+  authorization_reference: ""   # contract / ticket evidencing written permission
+  allow: []
+  deny: []
+  max_risk: passive             # passive | active | intrusive
+  expires_at: ""                # ISO-8601; blank means no expiry
+  allow_private_ranges: true
+
+# ---------------------------------------------------------------------------
+# Agent core
+# ---------------------------------------------------------------------------
+agent:
+  name: security-assistant
+  max_parallel_steps: 8
+  fail_fast: false
+  max_refinement_rounds: 3
+  run_timeout_seconds: 1800
+  recall_k: 5
+  persist_results: true
+  dry_run: false
+
+dispatcher:
+  max_concurrency: 16
+  default_timeout_seconds: 60
+  default_max_attempts: 1
+  retry_base_delay: 0.5
+  retry_max_delay: 15
+  audit_trail_size: 1000
+  # Leave enabled. Disabling removes the authorization gate entirely.
+  fail_closed_without_scope: true
+
+orchestrator:
+  workers: 4
+  queue_size: 256
+  shutdown_grace_seconds: 30
+  job_history_size: 500
+  install_signal_handlers: true
+  start_services_before_workers: true
+
+memory:
+  backend: in_memory            # in_memory | chroma | neo4j
+  namespace: default
+  embedding_dimension: 512
+  min_score: 0.05
+
+# ---------------------------------------------------------------------------
+# Feature modules (built in later steps)
+# ---------------------------------------------------------------------------
 osint:
   rate_limit_per_min: 30
   collectors:
-    - domains
+    - dns
+    - whois
     - subdomains
-    - breach_exposure
+  graph_backend: networkx       # networkx | neo4j
 
 iot_recon:
   scan_timeout_seconds: 30
   max_concurrent_hosts: 50
+  shodan_enabled: false
 
 threat_scanner:
+  sandbox_enabled: false        # headless-browser detonation
   feeds:
+    - name: virustotal
+      enabled: false
+    - name: urlscan
+      enabled: false
     - name: nvd
       enabled: true
-    - name: internal
-      enabled: false
 
 network:
   vpn:
-    provider: ""
+    provider: ""                # wireguard | openvpn | networkmanager
     kill_switch: true
+    health_check_interval_seconds: 30
+    reconnect_backoff_seconds: 5
