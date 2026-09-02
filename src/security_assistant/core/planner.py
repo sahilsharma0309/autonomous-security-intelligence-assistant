@@ -360,6 +360,7 @@ class RuleBasedPlanner:
         plan = Plan(goal=goal, target=target)
         producers: dict[str, list[str]] = {}
         steps_by_category: dict[ToolCategory, list[str]] = {}
+        unsatisfiable: dict[str, list[str]] = {}
 
         for tool in ranked:
             spec = tool.spec
@@ -373,6 +374,27 @@ class RuleBasedPlanner:
                     continue
                 if context and param.name in context:
                     arguments[param.name] = context[param.name]
+
+            # A tool needing an input nobody supplied is skipped, not planned.
+            # Planning it anyway produces a step the dispatcher must reject as
+            # INVALID, which fails the run and -- worse -- strands every step
+            # that consumes what it would have produced. A tool like
+            # `iot.shodan_search` (needs a query) or `osint.social` (needs a
+            # username) is simply not applicable to a bare target, and saying
+            # so here is more honest than dispatching it to fail.
+            missing = sorted(
+                p.name
+                for p in spec.parameters
+                if p.required and p.name not in arguments
+            )
+            if missing:
+                unsatisfiable[spec.name] = missing
+                logger.debug(
+                    "Skipping %s: no value supplied for required argument(s) %s",
+                    spec.name,
+                    missing,
+                )
+                continue
 
             step = PlanStep(
                 tool_name=spec.name,
@@ -407,11 +429,22 @@ class RuleBasedPlanner:
             for artifact in spec.produces:
                 producers.setdefault(artifact, []).append(step.id)
 
+        if not plan.steps:
+            raise PlanningError(
+                "No tool could be planned: every candidate needed an argument "
+                f"that was not supplied ({sorted(unsatisfiable)})"
+                if unsatisfiable
+                else "No tool could be planned for this goal"
+            )
+
         plan.metadata.update(
             {
                 "planner": type(self).__name__,
                 "max_risk": str(self._max_risk),
                 "tool_count": len(plan.steps),
+                # Recorded rather than dropped silently, so an operator can see
+                # that a capability exists but went unused for want of an input.
+                "skipped_unsatisfiable": dict(sorted(unsatisfiable.items())),
             }
         )
         plan.validate(registry)
