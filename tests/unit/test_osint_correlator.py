@@ -186,9 +186,7 @@ class TestLinkInference:
         graph.add_relationship(Relationship.create(b, address, EdgeType.RESOLVES_TO))
 
         report = Correlator().correlate(graph)
-        associations = [
-            r for r in report.inferred if r.type is EdgeType.ASSOCIATED_WITH
-        ]
+        associations = [r for r in report.inferred if r.type is EdgeType.ASSOCIATED_WITH]
         assert len(associations) == 1
         # Co-residency is a hint, never treated as proof of ownership.
         assert associations[0].confidence <= 0.4
@@ -226,9 +224,7 @@ class TestLinkInference:
         graph = EntityGraph()
         parent = graph.add_entity(domain("example.com"))
         child = graph.add_entity(domain("api.example.com"))
-        graph.add_relationship(
-            Relationship.create(child, parent, EdgeType.SUBDOMAIN_OF)
-        )
+        graph.add_relationship(Relationship.create(child, parent, EdgeType.SUBDOMAIN_OF))
 
         report = Correlator().correlate(graph)
         assert [r for r in report.inferred if r.type is EdgeType.SUBDOMAIN_OF] == []
@@ -362,9 +358,7 @@ class TestEndToEnd:
         graph.add_relationship(Relationship.create(www, address, EdgeType.RESOLVES_TO))
         graph.add_relationship(Relationship.create(apex, registrant, EdgeType.REGISTERED_BY))
         graph.add_relationship(Relationship.create(api, duplicate_org, EdgeType.REGISTERED_BY))
-        graph.add_relationship(
-            Relationship.create(apex, contact, EdgeType.REGISTRANT_CONTACT)
-        )
+        graph.add_relationship(Relationship.create(apex, contact, EdgeType.REGISTRANT_CONTACT))
 
         report = Correlator().correlate(graph)
 

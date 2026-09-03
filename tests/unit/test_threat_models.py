@@ -82,9 +82,7 @@ class TestScoring:
         assert different > same
 
     def test_many_weak_findings_cannot_outrank_one_critical(self) -> None:
-        weak = [
-            finding(f"w{i}", Severity.LOW, FindingCategory.STRUCTURE) for i in range(10)
-        ]
+        weak = [finding(f"w{i}", Severity.LOW, FindingCategory.STRUCTURE) for i in range(10)]
         assert score_findings(weak) < score_findings([finding("c", Severity.CRITICAL)])
 
     def test_score_is_bounded(self) -> None:
@@ -190,9 +188,7 @@ class TestUrlAssessment:
         assert [f.code for f in assessment.top_findings(2)] == ["crit", "med"]
 
     def test_serializes(self) -> None:
-        payload = UrlAssessment(
-            url="https://x.test/", findings=[finding("a")]
-        ).to_dict()
+        payload = UrlAssessment(url="https://x.test/", findings=[finding("a")]).to_dict()
         assert payload["url"] == "https://x.test/"
         assert payload["risk_band"] in {"benign", "low", "suspicious", "high", "critical"}
         assert payload["findings"][0]["code"] == "a"
@@ -278,9 +274,7 @@ class TestGraphProjection:
         assert "ip_address:93.184.216.34" in {e.key for e in entities}
 
     def test_malformed_url_projects_nothing(self) -> None:
-        entities, relationships = assessment_to_graph_elements(
-            UrlAssessment(url="not a url")
-        )
+        entities, relationships = assessment_to_graph_elements(UrlAssessment(url="not a url"))
         assert entities == []
         assert relationships == []
 
@@ -320,9 +314,7 @@ class TestVerdictProjection:
         assert entities[0].type is EntityType.FILE_HASH
 
     def test_unparseable_indicator_is_skipped(self) -> None:
-        verdict = ReputationVerdict(
-            source="virustotal", indicator="", indicator_type="domain"
-        )
+        verdict = ReputationVerdict(source="virustotal", indicator="", indicator_type="domain")
         entities, _ = verdicts_to_graph_elements([verdict])
         assert entities == []
 
@@ -335,9 +327,7 @@ class TestSummarize:
         result = summarize(
             [
                 UrlAssessment(url="https://a.test/"),
-                UrlAssessment(
-                    url="https://b.test/", findings=[finding("x", Severity.CRITICAL)]
-                ),
+                UrlAssessment(url="https://b.test/", findings=[finding("x", Severity.CRITICAL)]),
             ]
         )
         assert result["count"] == 2

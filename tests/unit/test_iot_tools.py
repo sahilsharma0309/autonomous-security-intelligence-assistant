@@ -46,8 +46,11 @@ from tests.unit.conftest import run
 
 
 class FakeSearchClient:
-    def __init__(self, host_payload: dict[str, Any] | None = None,
-                 search_payload: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        host_payload: dict[str, Any] | None = None,
+        search_payload: dict[str, Any] | None = None,
+    ) -> None:
         self.host_payload = host_payload or {}
         self.search_payload = search_payload or {}
         self.calls: list[tuple[str, str]] = []
@@ -180,9 +183,7 @@ class TestParseShodanSearch:
 class TestShodanTools:
     def test_host_lookup_projects_graph_elements(self) -> None:
         client = FakeSearchClient(host_payload=SHODAN_HOST_PAYLOAD)
-        result = run(
-            shodan_host.invoke(ctx(iot_search_client=client), {"target": "192.0.2.10"})
-        )
+        result = run(shodan_host.invoke(ctx(iot_search_client=client), {"target": "192.0.2.10"}))
 
         assert result["indexed"] is True
         keys = {e["key"] for e in result["entities"]}
@@ -251,9 +252,7 @@ class TestScanTools:
     def test_scan_refuses_to_reach_control_ports(self) -> None:
         probe = FakeProbe()
         result = run(
-            iot_scan.invoke(
-                ctx(tcp_probe=probe), {"target": "192.0.2.10", "ports": [80, 502, 102]}
-            )
+            iot_scan.invoke(ctx(tcp_probe=probe), {"target": "192.0.2.10", "ports": [80, 502, 102]})
         )
 
         assert result["excluded_control_ports"] == [102, 502]
@@ -285,9 +284,7 @@ class TestScanTools:
         assert "responded without requiring authentication" in result["finding"]
 
     def test_stream_probe_never_retrieves_content(self) -> None:
-        probe = FakeProbe(
-            {554: ProbeResult("192.0.2.10", 554, True, banner="RTSP/1.0 200 OK\r\n")}
-        )
+        probe = FakeProbe({554: ProbeResult("192.0.2.10", 554, True, banner="RTSP/1.0 200 OK\r\n")})
         result = run(
             stream_probe.invoke(ctx(tcp_probe=probe), {"target": "192.0.2.10", "ports": [554]})
         )
@@ -301,7 +298,9 @@ class TestScanTools:
         probe = FakeProbe(
             {
                 554: ProbeResult(
-                    "192.0.2.10", 554, True,
+                    "192.0.2.10",
+                    554,
+                    True,
                     banner="RTSP/1.0 401 Unauthorized\r\nWWW-Authenticate: Digest\r\n",
                 )
             }

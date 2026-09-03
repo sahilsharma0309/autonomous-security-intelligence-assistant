@@ -72,8 +72,16 @@ class DeviceClass:
 
     ALL = frozenset(
         {
-            UNKNOWN, IP_CAMERA, NVR, ROUTER, PRINTER, NAS, INDUSTRIAL,
-            BUILDING_AUTOMATION, MEDIA, SERVER,
+            UNKNOWN,
+            IP_CAMERA,
+            NVR,
+            ROUTER,
+            PRINTER,
+            NAS,
+            INDUSTRIAL,
+            BUILDING_AUTOMATION,
+            MEDIA,
+            SERVER,
         }
     )
 
@@ -284,8 +292,7 @@ def assets_to_graph_elements(
                         ("model", device.model or None),
                         ("open_ports", device.open_ports or None),
                         ("hostnames", device.hostnames or None),
-                        ("unauthenticated_services",
-                         len(device.unauthenticated_services) or None),
+                        ("unauthenticated_services", len(device.unauthenticated_services) or None),
                         *device.attributes.items(),
                     )
                     if v is not None
@@ -416,9 +423,7 @@ def _address_entity(host: str, source: str) -> Entity | None:
     resolution supplies one, which is exactly what ``osint.dns`` produces.
     """
     try:
-        return Entity.create(
-            EntityType.IP_ADDRESS, host, source=source, detail="asset address"
-        )
+        return Entity.create(EntityType.IP_ADDRESS, host, source=source, detail="asset address")
     except ValueError:
         return None
 

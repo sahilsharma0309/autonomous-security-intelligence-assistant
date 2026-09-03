@@ -57,10 +57,25 @@ __all__ = [
 # shared ownership, so the correlator must not treat it as evidence.
 PUBLIC_EMAIL_DOMAINS = frozenset(
     {
-        "gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com",
-        "live.com", "aol.com", "icloud.com", "me.com", "proton.me",
-        "protonmail.com", "gmx.com", "mail.com", "yandex.ru", "zoho.com",
-        "tutanota.com", "fastmail.com", "hushmail.com", "pm.me",
+        "gmail.com",
+        "googlemail.com",
+        "yahoo.com",
+        "hotmail.com",
+        "outlook.com",
+        "live.com",
+        "aol.com",
+        "icloud.com",
+        "me.com",
+        "proton.me",
+        "protonmail.com",
+        "gmx.com",
+        "mail.com",
+        "yandex.ru",
+        "zoho.com",
+        "tutanota.com",
+        "fastmail.com",
+        "hushmail.com",
+        "pm.me",
     }
 )
 
@@ -73,9 +88,22 @@ WWW_ALIAS_CONFIDENCE = 0.9
 # targets; shared infrastructure with them implies nothing about ownership.
 GENERIC_ORG_TOKENS = frozenset(
     {
-        "let s encrypt", "lets encrypt", "digicert", "sectigo", "comodo",
-        "godaddy", "cloudflare", "amazon", "google trust services", "globalsign",
-        "identrust", "entrust", "verisign", "namecheap", "tucows", "markmonitor",
+        "let s encrypt",
+        "lets encrypt",
+        "digicert",
+        "sectigo",
+        "comodo",
+        "godaddy",
+        "cloudflare",
+        "amazon",
+        "google trust services",
+        "globalsign",
+        "identrust",
+        "entrust",
+        "verisign",
+        "namecheap",
+        "tucows",
+        "markmonitor",
     }
 )
 
@@ -324,8 +352,7 @@ class Correlator:
                 rule="organization_name_similarity",
                 score=similarity,
                 detail=(
-                    f"{primary.canonical!r} ~ {duplicate.canonical!r} "
-                    f"(similarity {similarity:.2f})"
+                    f"{primary.canonical!r} ~ {duplicate.canonical!r} (similarity {similarity:.2f})"
                 ),
             )
         ]
@@ -395,9 +422,7 @@ class Correlator:
     def _resolved_addresses(graph: EntityGraph, key: str) -> set[str]:
         """Addresses a domain is known to resolve to."""
         return {
-            edge.target_key
-            for edge in graph.out_edges(key)
-            if edge.type is EdgeType.RESOLVES_TO
+            edge.target_key for edge in graph.out_edges(key) if edge.type is EdgeType.RESOLVES_TO
         }
 
     def _score_domains(self, left: Entity, right: Entity) -> MergeCandidate | None:

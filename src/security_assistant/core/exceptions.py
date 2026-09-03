@@ -103,8 +103,7 @@ class RateLimitExceededError(SecurityAssistantError):
         self.tool_name = tool_name
         self.limit_per_minute = limit_per_minute
         super().__init__(
-            f"Rate limit for tool {tool_name!r} exceeded "
-            f"({limit_per_minute:g} calls/min)"
+            f"Rate limit for tool {tool_name!r} exceeded ({limit_per_minute:g} calls/min)"
         )
 
 

@@ -100,9 +100,7 @@ class StdlibDnsResolver:
 
         family = socket.AF_INET if record == "A" else socket.AF_INET6
         try:
-            infos = await run_blocking(
-                socket.getaddrinfo, name, None, family, socket.SOCK_STREAM
-            )
+            infos = await run_blocking(socket.getaddrinfo, name, None, family, socket.SOCK_STREAM)
         except socket.gaierror as exc:
             if exc.errno in (socket.EAI_NONAME, socket.EAI_NODATA):
                 return []
@@ -129,9 +127,7 @@ class DnspythonResolver:
     async def resolve(self, name: str, record_type: str) -> list[str]:
         record = record_type.upper()
         try:
-            answer = await _dns.asyncresolver.resolve(
-                name, record, lifetime=self._lifetime
-            )
+            answer = await _dns.asyncresolver.resolve(name, record, lifetime=self._lifetime)
         except (_dns.resolver.NXDOMAIN, _dns.resolver.NoAnswer):
             # A domain with no records of this type is a fact, not an error.
             return []

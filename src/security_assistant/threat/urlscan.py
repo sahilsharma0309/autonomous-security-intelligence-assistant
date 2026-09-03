@@ -75,8 +75,7 @@ def api_key_from_env(env: Mapping[str, str] | None = None) -> str:
     key = (source.get(API_KEY_ENV_VAR) or "").strip()
     if not key:
         raise UrlscanCredentialsError(
-            f"{API_KEY_ENV_VAR} is not set. Export it or inject a "
-            "'urlscan_client' provider."
+            f"{API_KEY_ENV_VAR} is not set. Export it or inject a 'urlscan_client' provider."
         )
     return key
 
@@ -155,9 +154,7 @@ class UrlscanHttpClient:
         self._base = base_url.rstrip("/")
         self._bucket = bucket or TokenBucket(rate_per_minute)
 
-    async def _request(
-        self, method: str, path: str, **kwargs: Any
-    ) -> Mapping[str, Any]:
+    async def _request(self, method: str, path: str, **kwargs: Any) -> Mapping[str, Any]:
         if _httpx is None:  # pragma: no cover - guarded by the default factory
             raise UrlscanError("httpx is not installed")
 

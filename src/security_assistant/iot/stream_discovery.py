@@ -152,12 +152,18 @@ class AsyncioTcpProbe:
             )
         except TimeoutError:
             return ProbeResult(
-                host, port, False, error="connect timeout",
+                host,
+                port,
+                False,
+                error="connect timeout",
                 elapsed_ms=(time.monotonic() - started) * 1000,
             )
         except OSError as exc:
             return ProbeResult(
-                host, port, False, error=f"{type(exc).__name__}: {exc}",
+                host,
+                port,
+                False,
+                error=f"{type(exc).__name__}: {exc}",
                 elapsed_ms=(time.monotonic() - started) * 1000,
             )
 
@@ -269,9 +275,7 @@ async def scan_host(
                 return await probe.probe(normalized, port, payload)
             except Exception as exc:  # noqa: BLE001 - one port must not sink the scan
                 logger.debug("Probe of %s:%d raised: %s", normalized, port, exc)
-                return ProbeResult(
-                    normalized, port, False, error=f"{type(exc).__name__}: {exc}"
-                )
+                return ProbeResult(normalized, port, False, error=f"{type(exc).__name__}: {exc}")
 
     results = await asyncio.gather(*(one(p) for p in ports))
     return list(results)
@@ -308,9 +312,7 @@ async def discover_device(
                 banner=result.banner,
                 product=fingerprint.product,
                 version=fingerprint.version,
-                exposure=_exposure_from(
-                    result.banner, fingerprint.requires_auth, result.port
-                ),
+                exposure=_exposure_from(result.banner, fingerprint.requires_auth, result.port),
                 source=source,
                 # A completed TCP connect is a direct observation.
                 confidence=Confidence.OBSERVED,

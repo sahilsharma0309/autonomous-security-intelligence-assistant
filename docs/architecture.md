@@ -128,12 +128,17 @@ autonomous-security-intelligence-assistant/
 │   ├── threat_scanner/                 [legacy]  superseded by threat/
 │   │   └── scanner.py                  [built]   placeholder
 │   │
-│   ├── network/                        Module 5 — Network & VPN
-│   │   ├── vpn_daemon.py               [built]   placeholder
-│   │   ├── providers/                  [planned] wireguard, openvpn, networkmanager
-│   │   ├── health.py                   [planned] tunnel health, kill-switch
-│   │   └── service.py                  [planned] BackgroundService implementation
-│   │
+│   ├── network/                        [built]  Module 5 — VPN & system automation
+│   │   ├── commands.py                          privileged-command boundary (dry-run default)
+│   │   ├── vpn.py                               tunnel lifecycle + recovery state machine
+│   │   ├── killswitch.py                        lockout guard + dead-man's-switch rollback
+│   │   ├── leaks.py                             IP / DNS / route leak validation
+│   │   └── privileges.py                        sudoers + systemd/launchd templates
+│   ├── daemon/                         [built]  health, workers, heartbeat
+│   │   ├── health.py                            CPU/RAM/disk/latency grading
+│   │   └── service.py                           asyncio loop + worker restart budgets
+│   ├── cli.py                          [built]  unified Typer + Rich CLI
+│   ├── main.py                         [built]  process entry point
 │   ├── analysis/                       [planned] Module 6 — correlation, scoring
 │   │   ├── correlate.py
 │   │   └── severity.py
@@ -504,3 +509,102 @@ url:https://paypa1.com/login ──SERVED_BY──> domain:paypa1.com
                                               ↓
                                    ip_address:203.0.113.77
 ```
+
+## Module 5 — VPN Lifecycle, Health Daemon & Unified CLI
+
+### The inverted risk model
+
+Modules 2-4 act on a third party. Module 5 acts on the operator's own machine,
+so the failure that matters is not "we touched something out there" but "we
+locked the operator out of their own host". Three controls are structural
+rather than advisory.
+
+**Nothing executes by default.** The default `CommandRunner` is `DryRunRunner`,
+which records intent and returns success with `executed=False`. Importing the
+module, constructing a manager and calling it changes nothing; real execution
+requires an explicit `SubprocessRunner` (CLI: `--execute`).
+
+**The assistant never holds root.** No setuid, no persistent root session, no
+cached credential. Privilege is acquired per command through `sudo -n` or
+`pkexec` at the moment of use, and `network/privileges.py` emits the exact
+sudoers grants — argument-bound, so the grant is "may bring up wg0", not "may
+run wg-quick". Commands are argument vectors validated against a binary
+allowlist containing no shell, so an interface name with a semicolon is an
+invalid argument rather than a second command.
+
+**The kill-switch refuses to lock you out.** `LockoutGuard` rejects any plan
+that omits loopback, established connections, the VPN endpoint (without which
+the tunnel's own handshake is blocked and the host can never come back), or a
+named administrative network. Application arms a dead-man's switch: rules roll
+back automatically unless confirmed, so a policy that severed your connection
+restores itself. A partially-applied ruleset is rolled back immediately.
+
+### "Interface up" is not "tunnel working"
+
+A WireGuard interface stays up, keeps its routes and keeps accepting packets
+long after the peer stops answering — traffic just goes nowhere. So `UP`
+requires a *recent handshake*; a live interface with a stale one is `DEGRADED`,
+its own state precisely so callers must decide what to do. OpenVPN has no
+handshake counter, so its `UP` rests on weaker evidence and the status text
+says so rather than letting the two look equally certain.
+
+### Bounded autonomy
+
+Recovery is automatic by default but never unbounded:
+
+```
+HEALTHY ──fault──> DEGRADED ──> RECOVERING ──ok──> HEALTHY
+                                    │
+                                  fail
+                                    ↓
+                                 BACKOFF ──(attempts left)──> RECOVERING
+                                    │
+                            (attempts exhausted)
+                                    ↓
+                             NEEDS_OPERATOR  (terminal until reset)
+```
+
+Five attempts with exponential backoff, then a terminal state that surfaces in
+the health report and stops trying. Worker recovery uses the same shape: a
+restart budget inside a rolling window, then `FAILED`. An agent that retries
+forever is not self-healing — it is a loop that hides a fault.
+
+`--no-auto-reconnect` disables repair entirely (monitor and report only);
+`killswitch_enabled` is off by default because rewriting the host firewall
+needs a deliberate decision.
+
+### Honest negatives
+
+Two places refuse to report an unperformed check as a pass:
+
+- **Leak validation** — a check that could not run is `UNKNOWN`, and the report
+  verdict is `inconclusive`, never `protected`. An operator reading a green
+  report assumes protection they may not have.
+- **Health metrics** — an unreadable metric is `None`/`UNKNOWN`, never `0`. A
+  missing CPU reading rendered as `0%` looks like an idle, healthy system.
+
+### CLI
+
+`security-assistant` (Typer + Rich):
+
+| Command | Purpose |
+|---|---|
+| `scan url <target>` | Threat assessment |
+| `recon osint <target>` | OSINT + entity graph |
+| `recon iot <query> --target <asset>` | Asset discovery |
+| `vpn status \| connect \| disconnect` | Tunnel lifecycle |
+| `privileges [--killswitch] [--systemd]` | Emit sudoers / systemd unit |
+| `run-daemon` | Background supervisor |
+
+Every command's logic lives in an `async def run_*` returning a plain dict; the
+Typer callback only renders it. That makes behaviour testable without a
+terminal, `--json` free, and guarantees a rendering bug cannot change what the
+tool did.
+
+### Codebase cleanup
+
+The legacy placeholder layer is retired: `osint/engine.py`, `iot_recon/`,
+`threat_scanner/`, `network/vpn_daemon.py` and the synchronous
+`orchestrator.py` that tied them together (it imported all three and could not
+survive their removal). `ruff format` is now a CI gate alongside `ruff check`,
+`mypy --strict` and `pytest`; the whole tree was formatted in the same change.

@@ -100,9 +100,7 @@ class TestAuthorizationGate:
         assert result.status is InvocationStatus.DENIED
         assert "no authorization scope is configured" in (result.error or "")
 
-    def test_scope_gated_tool_without_target_is_invalid(
-        self, dispatcher: ToolDispatcher
-    ) -> None:
+    def test_scope_gated_tool_without_target_is_invalid(self, dispatcher: ToolDispatcher) -> None:
         result = run(dispatcher.call("recon.dns", None))
         assert result.status is InvocationStatus.INVALID
 

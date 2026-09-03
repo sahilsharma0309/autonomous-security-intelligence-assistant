@@ -260,6 +260,5 @@ class ToolResult:
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         detail = self.error if self.error else type(self.value).__name__
         return (
-            f"<ToolResult {self.tool_name} {self.status.value} "
-            f"{self.duration_ms:.1f}ms {detail}>"
+            f"<ToolResult {self.tool_name} {self.status.value} {self.duration_ms:.1f}ms {detail}>"
         )

@@ -113,8 +113,7 @@ class ToolParameter:
 
         if not isinstance(value, expected):
             raise ToolValidationError(
-                f"Parameter {self.name!r} expects {self.type_.__name__}, "
-                f"got {type(value).__name__}"
+                f"Parameter {self.name!r} expects {self.type_.__name__}, got {type(value).__name__}"
             )
 
         # Normalize float parameters supplied as ints.
@@ -210,8 +209,7 @@ class ToolSpec:
         """
         if not isinstance(arguments, Mapping):
             raise ToolValidationError(
-                f"Tool {self.name!r}: arguments must be a mapping, "
-                f"got {type(arguments).__name__}"
+                f"Tool {self.name!r}: arguments must be a mapping, got {type(arguments).__name__}"
             )
 
         params = self.parameter_map
@@ -404,9 +402,7 @@ def _assert_signature_matches(func: ToolFunc, spec: ToolSpec) -> None:
             f"Tool {spec.name!r}: function must accept a ToolContext as its first argument"
         )
 
-    accepts_var_kw = any(
-        p.kind is p.VAR_KEYWORD for p in signature.parameters.values()
-    )
+    accepts_var_kw = any(p.kind is p.VAR_KEYWORD for p in signature.parameters.values())
     if accepts_var_kw:
         return
 

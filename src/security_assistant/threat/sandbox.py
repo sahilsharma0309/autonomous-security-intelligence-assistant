@@ -122,9 +122,7 @@ class SandboxConfig:
 class SandboxInspector(Protocol):
     """Loads a URL and reports what happened."""
 
-    async def inspect(
-        self, url: str
-    ) -> SandboxReport:  # pragma: no cover - protocol declaration
+    async def inspect(self, url: str) -> SandboxReport:  # pragma: no cover - protocol declaration
         ...
 
 
@@ -142,7 +140,7 @@ def _host_of(url: str) -> str:
 # The script executed inside the container. It is deliberately small and
 # self-contained: it takes a URL on argv, prints one JSON document on stdout,
 # and never writes to disk.
-_BROWSER_SCRIPT = r'''
+_BROWSER_SCRIPT = r"""
 import asyncio, base64, json, sys
 from playwright.async_api import async_playwright
 
@@ -190,7 +188,7 @@ async def main(url, nav_timeout_ms, want_screenshot):
     print(json.dumps(report))
 
 asyncio.run(main(sys.argv[1], int(sys.argv[2]), sys.argv[3] == "1"))
-'''
+"""
 
 
 class ContainerSandbox:
@@ -244,8 +242,7 @@ class ContainerSandbox:
             )
         except FileNotFoundError as exc:
             raise SandboxUnavailableError(
-                f"{self._config.docker_binary} not found; cannot run the "
-                "container sandbox"
+                f"{self._config.docker_binary} not found; cannot run the container sandbox"
             ) from exc
         except OSError as exc:
             raise SandboxError(f"Could not start sandbox container: {exc}") from exc
@@ -267,9 +264,7 @@ class ContainerSandbox:
 
         if process.returncode != 0:
             detail = stderr.decode("utf-8", "replace").strip()[:300]
-            raise SandboxError(
-                f"Sandbox container exited {process.returncode}: {detail}"
-            )
+            raise SandboxError(f"Sandbox container exited {process.returncode}: {detail}")
 
         elapsed_ms = int((utcnow() - started).total_seconds() * 1000)
         return self._parse(url, stdout, elapsed_ms)
@@ -500,19 +495,41 @@ def docker_available(binary: str = "docker") -> bool:
     return shutil.which(binary) is not None
 
 
-def default_inspector(config: SandboxConfig | None = None) -> SandboxInspector:
-    """Pick the strongest inspector this environment supports.
+def default_inspector(
+    config: SandboxConfig | None = None, *, allow_static_fallback: bool = False
+) -> SandboxInspector:
+    """Pick an inspector, **failing closed** when the container cannot run.
 
-    Container first, static fallback second. The fallback is a real
-    degradation, so it is logged at warning level rather than silently
-    substituted.
+    If no container runtime is available the default is to raise, not to
+    quietly degrade. Silently substituting the static inspector would mean an
+    operator who believes they are detonating a hostile page behind an
+    isolation boundary is in fact fetching it from the host, and the only
+    signal would be a field in a report nobody reads. An accidental
+    non-isolated execution is exactly what the boundary exists to prevent, so
+    losing it has to be a deliberate act.
+
+    Pass ``allow_static_fallback=True`` -- surfaced as ``--allow-static-fallback``
+    on the CLI and ``threat.allow_static_fallback`` in config -- to accept the
+    degraded, script-free inspection instead.
     """
     settings = config or SandboxConfig()
     if docker_available(settings.docker_binary):
         return ContainerSandbox(settings)
+
+    if not allow_static_fallback:
+        raise SandboxUnavailableError(
+            f"No container runtime found ({settings.docker_binary!r} is not on "
+            "PATH), so the sandbox cannot isolate the page load. Refusing to "
+            "fall back silently. Install a container runtime, or pass "
+            "--allow-static-fallback (config: threat.allow_static_fallback) to "
+            "accept HTTP-only inspection, which executes no scripts and "
+            "observes no script-driven behaviour."
+        )
+
     logger.warning(
-        "Docker is not available; falling back to static HTTP inspection. "
-        "Script-driven behaviour will not be observed."
+        "Container runtime unavailable and --allow-static-fallback was given; "
+        "using static HTTP inspection. Script-driven behaviour will NOT be "
+        "observed, and reports are marked engine='static'."
     )
     return StaticInspector()
 

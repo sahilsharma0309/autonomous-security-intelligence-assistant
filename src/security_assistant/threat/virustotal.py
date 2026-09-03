@@ -80,8 +80,7 @@ def api_key_from_env(env: Mapping[str, str] | None = None) -> str:
     key = (source.get(API_KEY_ENV_VAR) or "").strip()
     if not key:
         raise VirusTotalCredentialsError(
-            f"{API_KEY_ENV_VAR} is not set. Export it or inject a "
-            "'virustotal_client' provider."
+            f"{API_KEY_ENV_VAR} is not set. Export it or inject a 'virustotal_client' provider."
         )
     return key
 
@@ -117,8 +116,7 @@ class TokenBucket:
         """Wait until ``tokens`` are available; return the seconds waited."""
         if tokens > self._capacity:
             raise ValueError(
-                f"Cannot acquire {tokens} tokens from a bucket of capacity "
-                f"{self._capacity}"
+                f"Cannot acquire {tokens} tokens from a bucket of capacity {self._capacity}"
             )
         waited = 0.0
         async with self._lock:
@@ -126,9 +124,7 @@ class TokenBucket:
                 now = time.monotonic()
                 elapsed = now - self._updated
                 self._updated = now
-                self._tokens = min(
-                    self._capacity, self._tokens + elapsed * self._rate_per_second
-                )
+                self._tokens = min(self._capacity, self._tokens + elapsed * self._rate_per_second)
                 if self._tokens >= tokens:
                     self._tokens -= tokens
                     return waited
@@ -309,9 +305,7 @@ def _categories(attributes: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
-def _verdict(
-    payload: Mapping[str, Any], indicator: str, indicator_type: str
-) -> ReputationVerdict:
+def _verdict(payload: Mapping[str, Any], indicator: str, indicator_type: str) -> ReputationVerdict:
     attributes = _attributes(payload)
     malicious, suspicious, harmless, undetected = _analysis_counts(attributes)
     reputation = attributes.get("reputation")

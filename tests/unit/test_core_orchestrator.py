@@ -51,17 +51,11 @@ class FailingService(RecordingService):
 
 
 class TestLifecycle:
-    def test_runs_a_job_end_to_end(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_runs_a_job_end_to_end(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         async def scenario():
-            orch = AgentOrchestrator(
-                lambda: Agent(registry, scope), OrchestratorConfig(workers=2)
-            )
+            orch = AgentOrchestrator(lambda: Agent(registry, scope), OrchestratorConfig(workers=2))
             async with orch:
-                return await orch.submit_and_wait(
-                    "Assess", target="example.com", timeout=30
-                )
+                return await orch.submit_and_wait("Assess", target="example.com", timeout=30)
 
         job = run(scenario())
         assert job.status is TaskStatus.SUCCEEDED
@@ -123,13 +117,9 @@ class TestLifecycle:
         with pytest.raises(TypeError, match="must be callable"):
             AgentOrchestrator("not a factory")  # type: ignore[arg-type]
 
-    def test_start_is_idempotent(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_start_is_idempotent(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         async def scenario() -> int:
-            orch = AgentOrchestrator(
-                lambda: Agent(registry, scope), OrchestratorConfig(workers=2)
-            )
+            orch = AgentOrchestrator(lambda: Agent(registry, scope), OrchestratorConfig(workers=2))
             await orch.start()
             await orch.start()
             workers = orch.stats()["workers"]
@@ -140,13 +130,9 @@ class TestLifecycle:
 
 
 class TestQueueing:
-    def test_batch_submission(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_batch_submission(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         async def scenario() -> list:
-            orch = AgentOrchestrator(
-                lambda: Agent(registry, scope), OrchestratorConfig(workers=3)
-            )
+            orch = AgentOrchestrator(lambda: Agent(registry, scope), OrchestratorConfig(workers=3))
             async with orch:
                 ids = await orch.submit_all(
                     [{"goal": f"g{i}", "target": "example.com"} for i in range(5)]
@@ -191,9 +177,7 @@ class TestQueueing:
         registry.register(record)
 
         async def scenario() -> list[str]:
-            orch = AgentOrchestrator(
-                lambda: Agent(registry, scope), OrchestratorConfig(workers=1)
-            )
+            orch = AgentOrchestrator(lambda: Agent(registry, scope), OrchestratorConfig(workers=1))
             async with orch:
                 # Occupy the single worker so the rest genuinely queue up.
                 blocker = await orch.submit("blocker", context={"label": "blocker"})
@@ -202,9 +186,7 @@ class TestQueueing:
                         break
                     await asyncio.sleep(0.01)
 
-                await orch.submit(
-                    "low", priority=JobPriority.LOW, context={"label": "low"}
-                )
+                await orch.submit("low", priority=JobPriority.LOW, context={"label": "low"})
                 last = await orch.submit(
                     "urgent", priority=JobPriority.URGENT, context={"label": "urgent"}
                 )
@@ -233,13 +215,9 @@ class TestObservability:
         run(scenario())
         assert {"orchestrator.started", "job.submitted", "job.finished"} <= set(events)
 
-    def test_stats_snapshot(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_stats_snapshot(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         async def scenario() -> dict:
-            orch = AgentOrchestrator(
-                lambda: Agent(registry, scope), OrchestratorConfig(workers=2)
-            )
+            orch = AgentOrchestrator(lambda: Agent(registry, scope), OrchestratorConfig(workers=2))
             async with orch:
                 await orch.submit_and_wait("Assess", target="example.com", timeout=30)
                 return orch.stats()
@@ -256,15 +234,11 @@ class TestObservability:
         with pytest.raises(KeyError):
             orch.get_job("nope")
 
-    def test_job_serialization(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_job_serialization(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         async def scenario() -> dict:
             orch = AgentOrchestrator(lambda: Agent(registry, scope))
             async with orch:
-                job = await orch.submit_and_wait(
-                    "Assess", target="example.com", timeout=30
-                )
+                job = await orch.submit_and_wait("Assess", target="example.com", timeout=30)
                 return job.to_dict()
 
         payload = run(scenario())

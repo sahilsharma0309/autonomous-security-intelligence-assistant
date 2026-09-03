@@ -210,9 +210,7 @@ class ToolRegistry:
     def summary(self) -> dict[str, Any]:
         """Aggregate counts, handy for startup logging and health endpoints."""
         by_category = {
-            category.value: len(names)
-            for category, names in self._by_category.items()
-            if names
+            category.value: len(names) for category, names in self._by_category.items() if names
         }
         by_risk: dict[str, int] = {}
         for spec in self.specs:

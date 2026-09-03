@@ -99,9 +99,7 @@ class TestPorts:
         assert assert_fetchable(f"http://example.com:{port}/")
 
     def test_custom_allowlist(self) -> None:
-        assert assert_fetchable(
-            "http://example.com:9999/", allowed_ports=frozenset({9999})
-        )
+        assert assert_fetchable("http://example.com:9999/", allowed_ports=frozenset({9999}))
 
 
 class TestResolverPath:
@@ -114,9 +112,7 @@ class TestResolverPath:
             assert_fetchable("http://metadata.example/", resolver=resolver)
 
     def test_allows_a_name_resolving_publicly(self) -> None:
-        assert assert_fetchable(
-            "http://example.com/", resolver=lambda host: ["93.184.216.34"]
-        )
+        assert assert_fetchable("http://example.com/", resolver=lambda host: ["93.184.216.34"])
 
     def test_resolution_failure_is_fatal_not_ignored(self) -> None:
         def resolver(host: str) -> list[str]:

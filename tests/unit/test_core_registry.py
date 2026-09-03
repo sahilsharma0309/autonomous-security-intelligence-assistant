@@ -178,9 +178,7 @@ class TestToolRegistry:
             registry.unregister("recon.dns")
 
     def test_filters(self, registry: ToolRegistry) -> None:
-        assert [t.spec.name for t in registry.by_category(ToolCategory.OSINT)] == [
-            "osint.whois"
-        ]
+        assert [t.spec.name for t in registry.by_category(ToolCategory.OSINT)] == ["osint.whois"]
         assert {t.spec.name for t in registry.at_or_below_risk(RiskLevel.PASSIVE)} == {
             "net.vpn_up",
             "osint.whois",

@@ -177,9 +177,7 @@ class TestCrossModuleJoin:
         agent = Agent(full_registry(), scope(), config=AgentConfig(max_parallel_steps=4))
 
         # One run over the domain, one over the address it resolves to.
-        osint = asyncio.run(
-            agent.run("Map the domain", target="example.com", context=context())
-        )
+        osint = asyncio.run(agent.run("Map the domain", target="example.com", context=context()))
         assets = asyncio.run(
             agent.run("Inventory the host", target="192.0.2.10", context=context())
         )
@@ -209,9 +207,7 @@ class TestCrossModuleJoin:
 
     def test_exposed_service_is_visible_from_the_device(self) -> None:
         graph = self._graph()
-        services = graph.neighbors(
-            "iot_device:192.0.2.10", edge_type=EdgeType.EXPOSES_SERVICE
-        )
+        services = graph.neighbors("iot_device:192.0.2.10", edge_type=EdgeType.EXPOSES_SERVICE)
         assert any(s.canonical == "192.0.2.10:554/rtsp" for s in services)
 
     def test_joined_graph_round_trips_and_exports(self) -> None:
@@ -235,9 +231,7 @@ class TestAuthorizationAcrossTheStack:
     def test_out_of_scope_address_collects_nothing(self) -> None:
         probe = ScriptedProbe()
         agent = Agent(full_registry(), scope())
-        result = asyncio.run(
-            agent.run("Inventory", target="203.0.113.9", context=context(probe))
-        )
+        result = asyncio.run(agent.run("Inventory", target="203.0.113.9", context=context(probe)))
 
         assert result.status is TaskStatus.FAILED
         assert result.denied
@@ -290,9 +284,7 @@ class TestStreamProbeRestraint:
 
     def test_unauthenticated_rtsp_is_reported_as_a_finding(self) -> None:
         agent = Agent(full_registry(), scope())
-        result = asyncio.run(
-            agent.run("Inventory", target="192.0.2.10", context=context())
-        )
+        result = asyncio.run(agent.run("Inventory", target="192.0.2.10", context=context()))
 
         payloads = result.values_by_tool()
         stream = payloads.get("iot.stream_probe")
@@ -303,9 +295,7 @@ class TestStreamProbeRestraint:
 
     def test_authenticated_web_ui_is_not_reported_as_exposed(self) -> None:
         agent = Agent(full_registry(), scope())
-        result = asyncio.run(
-            agent.run("Inventory", target="192.0.2.10", context=context())
-        )
+        result = asyncio.run(agent.run("Inventory", target="192.0.2.10", context=context()))
         stream = result.values_by_tool().get("iot.stream_probe")
         assert stream is not None
         assert all(e["port"] != 80 for e in stream["unauthenticated_endpoints"])

@@ -234,9 +234,7 @@ def parse_whois_record(domain: str, raw: Mapping[str, Any]) -> WhoisRecord:
 
     # If org/contact fields exist but every value was a privacy placeholder,
     # the record is redacted rather than empty -- a meaningful distinction.
-    had_contact_fields = any(
-        raw.get(name) is not None for name in (*_ORG_FIELDS, *_EMAIL_FIELDS)
-    )
+    had_contact_fields = any(raw.get(name) is not None for name in (*_ORG_FIELDS, *_EMAIL_FIELDS))
     redacted = had_contact_fields and registrant_org is None and not emails
 
     return WhoisRecord(
@@ -314,9 +312,7 @@ def record_to_graph_elements(
     for email in record.emails:
         try:
             link(
-                Entity.create(
-                    EntityType.EMAIL, email, source=source, detail="whois contact"
-                ),
+                Entity.create(EntityType.EMAIL, email, source=source, detail="whois contact"),
                 EdgeType.REGISTRANT_CONTACT,
                 Confidence.STRONG,
                 "whois contact email",

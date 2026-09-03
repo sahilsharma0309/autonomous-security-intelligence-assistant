@@ -417,9 +417,7 @@ class AgentOrchestrator:
         timeout: float | None = None,
     ) -> Job:
         """Convenience wrapper: :meth:`submit` then :meth:`wait_for`."""
-        job_id = await self.submit(
-            goal, target=target, priority=priority, context=context
-        )
+        job_id = await self.submit(goal, target=target, priority=priority, context=context)
         return await self.wait_for(job_id, timeout=timeout)
 
     async def submit_all(
@@ -461,9 +459,7 @@ class AgentOrchestrator:
 
     def stats(self) -> dict[str, Any]:
         """A health/metrics snapshot suitable for a status endpoint."""
-        uptime = (
-            (utcnow() - self._started_at).total_seconds() if self._started_at else 0.0
-        )
+        uptime = (utcnow() - self._started_at).total_seconds() if self._started_at else 0.0
         return {
             "running": self._running,
             "shutting_down": self._shutting_down,
@@ -557,9 +553,7 @@ class AgentOrchestrator:
             job.status.value,
             (time.perf_counter() - started) * 1000.0,
         )
-        await self._emit(
-            "job.finished", {"job_id": job.id, "status": job.status.value}
-        )
+        await self._emit("job.finished", {"job_id": job.id, "status": job.status.value})
 
     async def _start_services(self) -> None:
         """Start background services in registration order.

@@ -47,9 +47,7 @@ class TestRuleBasedPlanner:
         assert dependencies == {"recon.dns", "osint.whois"}
 
     def test_injects_target_into_scope_gated_steps(self, registry: ToolRegistry) -> None:
-        plan = run(
-            RuleBasedPlanner().plan("assess", target="example.com", registry=registry)
-        )
+        plan = run(RuleBasedPlanner().plan("assess", target="example.com", registry=registry))
         dns = next(s for s in plan.steps if s.tool_name == "recon.dns")
         vpn = next(s for s in plan.steps if s.tool_name == "net.vpn_up")
         assert dns.arguments == {"target": "example.com"}
@@ -156,9 +154,7 @@ class TestPlanTraversal:
                 PlanStep(tool_name="net.vpn_up", id="root"),
                 PlanStep(tool_name="osint.whois", id="left", depends_on=("root",)),
                 PlanStep(tool_name="recon.dns", id="right", depends_on=("root",)),
-                PlanStep(
-                    tool_name="analysis.correlate", id="join", depends_on=("left", "right")
-                ),
+                PlanStep(tool_name="analysis.correlate", id="join", depends_on=("left", "right")),
             ],
         )
 

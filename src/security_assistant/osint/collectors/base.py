@@ -42,9 +42,7 @@ class CollectorError(RuntimeError):
     """
 
 
-def provider_from(
-    ctx: ToolContext, key: str, default_factory: Callable[[], T]
-) -> T:
+def provider_from(ctx: ToolContext, key: str, default_factory: Callable[[], T]) -> T:
     """Return the provider registered under ``key``, or build the default.
 
     Looking the provider up per call (rather than binding it at import time)

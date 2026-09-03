@@ -91,8 +91,7 @@ class PlatformHook:
             raise ValueError("Platform hook name must not be empty")
         if "{username}" not in self.url_template:
             raise ValueError(
-                f"Platform {self.name!r} url_template must contain a "
-                "'{username}' placeholder"
+                f"Platform {self.name!r} url_template must contain a '{{username}}' placeholder"
             )
 
     def url_for(self, username: str) -> str:
@@ -107,9 +106,7 @@ class PlatformHook:
         name = raw.get("name")
         template = raw.get("url_template") or raw.get("url")
         if not name or not template:
-            raise ValueError(
-                f"Platform hook requires 'name' and 'url_template': {dict(raw)!r}"
-            )
+            raise ValueError(f"Platform hook requires 'name' and 'url_template': {dict(raw)!r}")
         return cls(
             name=str(name),
             url_template=str(template),
@@ -212,9 +209,7 @@ def platforms_from_config(raw: Any) -> list[PlatformHook]:
             except ValueError as exc:
                 raise CollectorError(str(exc)) from exc
         else:
-            raise CollectorError(
-                f"Cannot interpret social platform entry: {item!r}"
-            )
+            raise CollectorError(f"Cannot interpret social platform entry: {item!r}")
     return hooks
 
 

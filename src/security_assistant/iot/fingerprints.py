@@ -60,7 +60,18 @@ _PORT_PROTOCOLS: dict[int, str] = {
 
 #: Ports worth checking on a general IoT sweep.
 DEFAULT_IOT_PORTS: tuple[int, ...] = (
-    21, 22, 23, 80, 443, 554, 1883, 8000, 8080, 8443, 8554, 8888,
+    21,
+    22,
+    23,
+    80,
+    443,
+    554,
+    1883,
+    8000,
+    8080,
+    8443,
+    8554,
+    8888,
 )
 
 #: Industrial and building-automation control ports.
@@ -128,10 +139,33 @@ _PROTOCOL_CLASSES: dict[str, str] = {
 }
 
 _VENDORS: tuple[str, ...] = (
-    "hikvision", "dahua", "axis", "foscam", "vivotek", "mobotix", "ubiquiti",
-    "mikrotik", "tp-link", "netgear", "draytek", "synology", "qnap", "siemens",
-    "schneider", "rockwell", "honeywell", "bosch", "panasonic", "sony",
-    "d-link", "linksys", "asus", "zyxel", "tenda", "reolink", "amcrest",
+    "hikvision",
+    "dahua",
+    "axis",
+    "foscam",
+    "vivotek",
+    "mobotix",
+    "ubiquiti",
+    "mikrotik",
+    "tp-link",
+    "netgear",
+    "draytek",
+    "synology",
+    "qnap",
+    "siemens",
+    "schneider",
+    "rockwell",
+    "honeywell",
+    "bosch",
+    "panasonic",
+    "sony",
+    "d-link",
+    "linksys",
+    "asus",
+    "zyxel",
+    "tenda",
+    "reolink",
+    "amcrest",
 )
 
 _SERVER_HEADER_RE = re.compile(r"^server:\s*(.+)$", re.IGNORECASE | re.MULTILINE)

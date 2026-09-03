@@ -215,9 +215,7 @@ class TestUrlscanParsing:
         assert "203.0.113.9" in result.ip_addresses
 
     def test_result_to_verdict(self) -> None:
-        result = urlscan_module.ScanResult(
-            url="https://phish.test/", malicious=True, score=90
-        )
+        result = urlscan_module.ScanResult(url="https://phish.test/", malicious=True, score=90)
         verdict = urlscan_module.result_to_verdict(result)
         assert verdict.malicious == 1
         assert verdict.reputation == 90
@@ -240,9 +238,9 @@ class TestSubmitOptions:
             urlscan_module.SubmitOptions(visibility="everyone")
 
     def test_payload_includes_url_and_visibility(self) -> None:
-        payload = urlscan_module.SubmitOptions(
-            visibility="private", tags=("ir",)
-        ).to_payload("https://x.test/")
+        payload = urlscan_module.SubmitOptions(visibility="private", tags=("ir",)).to_payload(
+            "https://x.test/"
+        )
         assert payload == {
             "url": "https://x.test/",
             "visibility": "private",

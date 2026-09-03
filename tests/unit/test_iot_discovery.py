@@ -144,7 +144,8 @@ class TestDiscoverDevice:
         probe = FakeProbe(
             {
                 80: open_port(
-                    "192.0.2.10", 80,
+                    "192.0.2.10",
+                    80,
                     "HTTP/1.0 401 Unauthorized\r\nWWW-Authenticate: Digest\r\n"
                     "Server: Hikvision-Webs\r\n\r\n",
                 ),
@@ -181,9 +182,7 @@ class TestDiscoverDevice:
         # An open control port that says nothing is exactly the case here.
         probe = FakeProbe({502: open_port("192.0.2.10", 502, "")})
         device = run(
-            discover_device(
-                "192.0.2.10", probe, ScanConfig(ports=[502], include_industrial=True)
-            )
+            discover_device("192.0.2.10", probe, ScanConfig(ports=[502], include_industrial=True))
         )
         assert device.open_ports == [502]
         assert device.services[0].exposure == Exposure.UNKNOWN
@@ -269,7 +268,9 @@ class TestGraphProjection:
             hostnames=["cam1.example.com"],
             services=[
                 DiscoveredService(
-                    host="192.0.2.10", port=554, protocol="rtsp",
+                    host="192.0.2.10",
+                    port=554,
+                    protocol="rtsp",
                     exposure=Exposure.UNAUTHENTICATED,
                 ),
                 DiscoveredService(host="192.0.2.10", port=80, protocol="http"),
@@ -377,7 +378,9 @@ class TestSummarize:
                 device_class=DeviceClass.IP_CAMERA,
                 services=[
                     DiscoveredService(
-                        host="192.0.2.10", port=554, protocol="rtsp",
+                        host="192.0.2.10",
+                        port=554,
+                        protocol="rtsp",
                         exposure=Exposure.UNAUTHENTICATED,
                     )
                 ],
@@ -401,8 +404,11 @@ class TestRoundTrip:
             vendor="axis",
             services=[
                 DiscoveredService(
-                    host="192.0.2.10", port=554, protocol=ServiceProtocol.RTSP,
-                    banner="RTSP/1.0 200 OK", exposure=Exposure.UNAUTHENTICATED,
+                    host="192.0.2.10",
+                    port=554,
+                    protocol=ServiceProtocol.RTSP,
+                    banner="RTSP/1.0 200 OK",
+                    exposure=Exposure.UNAUTHENTICATED,
                 )
             ],
         )

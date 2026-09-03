@@ -53,27 +53,69 @@ __all__ = [
 #: Brands worth checking for imitation by default. Short on purpose -- see
 #: the module docstring.
 DEFAULT_PROTECTED_BRANDS: tuple[str, ...] = (
-    "google.com", "microsoft.com", "apple.com", "amazon.com", "paypal.com",
-    "facebook.com", "instagram.com", "netflix.com", "linkedin.com",
-    "dropbox.com", "github.com", "office365.com", "outlook.com",
+    "google.com",
+    "microsoft.com",
+    "apple.com",
+    "amazon.com",
+    "paypal.com",
+    "facebook.com",
+    "instagram.com",
+    "netflix.com",
+    "linkedin.com",
+    "dropbox.com",
+    "github.com",
+    "office365.com",
+    "outlook.com",
 )
 
 #: TLDs disproportionately represented in abuse reporting. Presence is a weak
 #: signal only: plenty of legitimate sites use them.
 SUSPICIOUS_TLDS = frozenset(
     {
-        "zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "buzz",
-        "click", "link", "work", "country", "kim", "loan", "download",
-        "racing", "win", "review", "stream", "bid", "date", "faith",
+        "zip",
+        "mov",
+        "top",
+        "xyz",
+        "tk",
+        "ml",
+        "ga",
+        "cf",
+        "gq",
+        "buzz",
+        "click",
+        "link",
+        "work",
+        "country",
+        "kim",
+        "loan",
+        "download",
+        "racing",
+        "win",
+        "review",
+        "stream",
+        "bid",
+        "date",
+        "faith",
     }
 )
 
 #: Hosts that let anyone publish arbitrary content on a trusted-looking name.
 DYNAMIC_DNS_SUFFIXES = frozenset(
     {
-        "duckdns.org", "no-ip.com", "no-ip.org", "ddns.net", "hopto.org",
-        "zapto.org", "serveo.net", "ngrok.io", "ngrok-free.app", "trycloudflare.com",
-        "loca.lt", "localtunnel.me", "pagekite.me", "serveusers.com",
+        "duckdns.org",
+        "no-ip.com",
+        "no-ip.org",
+        "ddns.net",
+        "hopto.org",
+        "zapto.org",
+        "serveo.net",
+        "ngrok.io",
+        "ngrok-free.app",
+        "trycloudflare.com",
+        "loca.lt",
+        "localtunnel.me",
+        "pagekite.me",
+        "serveusers.com",
     }
 )
 
@@ -81,22 +123,69 @@ DYNAMIC_DNS_SUFFIXES = frozenset(
 #: hostname rather than a path.
 PHISHING_KEYWORDS = frozenset(
     {
-        "login", "signin", "sign-in", "verify", "verification", "account",
-        "secure", "security", "update", "confirm", "billing", "payment",
-        "invoice", "wallet", "recover", "unlock", "suspended", "authenticate",
-        "webscr", "banking",
+        "login",
+        "signin",
+        "sign-in",
+        "verify",
+        "verification",
+        "account",
+        "secure",
+        "security",
+        "update",
+        "confirm",
+        "billing",
+        "payment",
+        "invoice",
+        "wallet",
+        "recover",
+        "unlock",
+        "suspended",
+        "authenticate",
+        "webscr",
+        "banking",
     }
 )
 
 #: Characters commonly substituted to imitate ASCII letters. Mapping to the
 #: letter they imitate gives a "skeleton" two names can be compared on.
 _CONFUSABLES: dict[str, str] = {
-    "а": "a", "α": "a", "ⅰ": "i", "і": "i", "ӏ": "l", "ⅼ": "l",
-    "е": "e", "ё": "e", "о": "o", "ο": "o", "օ": "o", "р": "p", "ρ": "p",
-    "с": "c", "ϲ": "c", "ѕ": "s", "ԁ": "d", "һ": "h", "ν": "v", "ԝ": "w",
-    "х": "x", "у": "y", "ƅ": "b", "ɡ": "g", "ᴜ": "u", "ｍ": "m", "ո": "n",
-    "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b",
-    "rn": "m", "vv": "w", "cl": "d",
+    "а": "a",
+    "α": "a",
+    "ⅰ": "i",
+    "і": "i",
+    "ӏ": "l",
+    "ⅼ": "l",
+    "е": "e",
+    "ё": "e",
+    "о": "o",
+    "ο": "o",
+    "օ": "o",
+    "р": "p",
+    "ρ": "p",
+    "с": "c",
+    "ϲ": "c",
+    "ѕ": "s",
+    "ԁ": "d",
+    "һ": "h",
+    "ν": "v",
+    "ԝ": "w",
+    "х": "x",
+    "у": "y",
+    "ƅ": "b",
+    "ɡ": "g",
+    "ᴜ": "u",
+    "ｍ": "m",
+    "ո": "n",
+    "0": "o",
+    "1": "l",
+    "3": "e",
+    "4": "a",
+    "5": "s",
+    "7": "t",
+    "8": "b",
+    "rn": "m",
+    "vv": "w",
+    "cl": "d",
 }
 
 _IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
@@ -273,9 +362,7 @@ class UrlAnalyzer:
         findings.extend(self._hosting_findings(parts))
         return findings
 
-    def analyze_certificate(
-        self, url: str, certificate: Mapping[str, object]
-    ) -> list[Finding]:
+    def analyze_certificate(self, url: str, certificate: Mapping[str, object]) -> list[Finding]:
         """Findings from a TLS certificate observed for this URL.
 
         Accepts the shape produced by ``osint.tls`` so Module 2's collector
@@ -363,9 +450,7 @@ class UrlAnalyzer:
             # A password field is only notable in combination with something
             # else -- most login pages are legitimate -- so it is MEDIUM on
             # a deceptive domain and LOW otherwise.
-            deceptive = any(
-                f.category is FindingCategory.DECEPTION for f in findings
-            )
+            deceptive = any(f.category is FindingCategory.DECEPTION for f in findings)
             findings.append(
                 Finding(
                     code="credential_form",
@@ -512,9 +597,7 @@ class UrlAnalyzer:
                 if registrable == brand:
                     return findings  # It *is* the brand; nothing to report.
 
-                distance = edit_distance(
-                    name, brand_name, cap=self._config.max_typo_distance + 1
-                )
+                distance = edit_distance(name, brand_name, cap=self._config.max_typo_distance + 1)
                 if 0 < distance <= self._config.max_typo_distance:
                     findings.append(
                         Finding(
@@ -522,10 +605,7 @@ class UrlAnalyzer:
                             title=f"Domain closely resembles {brand}",
                             severity=Severity.HIGH,
                             category=FindingCategory.DECEPTION,
-                            detail=(
-                                f"{registrable!r} is {distance} edit(s) from "
-                                f"{brand!r}"
-                            ),
+                            detail=(f"{registrable!r} is {distance} edit(s) from {brand!r}"),
                             source="threat.url_analyze",
                         )
                     )
@@ -557,9 +637,7 @@ class UrlAnalyzer:
                             title=f"{brand} appears in a subdomain of another domain",
                             severity=Severity.HIGH,
                             category=FindingCategory.DECEPTION,
-                            detail=(
-                                f"{host} is served by {registrable}, not {brand}"
-                            ),
+                            detail=(f"{host} is served by {registrable}, not {brand}"),
                             source="threat.url_analyze",
                         )
                     )

@@ -364,9 +364,7 @@ class ToolDispatcher:
             attempt += 1
             try:
                 async with self._semaphore:
-                    value = await asyncio.wait_for(
-                        tool.invoke(context, arguments), timeout=timeout
-                    )
+                    value = await asyncio.wait_for(tool.invoke(context, arguments), timeout=timeout)
             except TimeoutError:
                 last_error = ToolTimeoutError(spec.name, timeout)
                 logger.warning(
@@ -492,9 +490,7 @@ class ToolDispatcher:
 
         >>> await dispatcher.call("dns.resolve", target="example.com")  # doctest: +SKIP
         """
-        return await self.dispatch(
-            ToolInvocation(tool_name=tool_name, arguments=arguments), ctx
-        )
+        return await self.dispatch(ToolInvocation(tool_name=tool_name, arguments=arguments), ctx)
 
     # -- internals --------------------------------------------------------- #
     def _backoff_delay(self, attempt: int) -> float:

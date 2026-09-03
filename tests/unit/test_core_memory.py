@@ -174,9 +174,7 @@ class TestLongTermMemory:
         memory = LongTermMemory()
 
         async def scenario() -> int:
-            await memory.remember_many(
-                [("first finding", {"n": 1}), ("second finding", {"n": 2})]
-            )
+            await memory.remember_many([("first finding", {"n": 1}), ("second finding", {"n": 2})])
             return await memory.size()
 
         assert run(scenario()) == 2
