@@ -60,9 +60,7 @@ class TestSuccessfulRun:
         assert payload["status"] == "succeeded"
         assert len(payload["results"]) == 4
 
-    def test_result_lookup_by_step(
-        self, registry: ToolRegistry, scope: AuthorizationScope
-    ) -> None:
+    def test_result_lookup_by_step(self, registry: ToolRegistry, scope: AuthorizationScope) -> None:
         agent = Agent(registry, scope)
         result = run(agent.run("goal", target="example.com"))
         step = result.plan.steps[0]
@@ -119,9 +117,7 @@ class TestFailureHandling:
         agent = Agent(registry, scope)
         result = run(agent.run("goal", target="example.com"))
 
-        correlate_step = next(
-            s for s in result.plan.steps if s.tool_name == "analysis.correlate"
-        )
+        correlate_step = next(s for s in result.plan.steps if s.tool_name == "analysis.correlate")
         assert correlate_step.status is TaskStatus.SKIPPED
         assert result.status is TaskStatus.FAILED
 
@@ -135,9 +131,7 @@ class TestFailureHandling:
         result = run(agent.run("goal", target="example.com"))
         assert result.status is TaskStatus.CANCELLED
 
-    def test_optional_step_failure_does_not_fail_the_run(
-        self, scope: AuthorizationScope
-    ) -> None:
+    def test_optional_step_failure_does_not_fail_the_run(self, scope: AuthorizationScope) -> None:
         # analysis.* is optional by default in RuleBasedPlanner, so a failure
         # there should not sink an otherwise clean assessment.
         from tests.unit.conftest import dns_resolve, vpn_up, whois_lookup

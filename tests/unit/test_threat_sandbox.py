@@ -145,9 +145,7 @@ class TestReportParsing:
         assert len(report.chain) == 2
 
     def test_contacted_domains_exclude_the_origin_and_deduplicate(self) -> None:
-        report = report_from_payload(
-            "https://a.test/", self.PAYLOAD, engine="container", load_ms=0
-        )
+        report = report_from_payload("https://a.test/", self.PAYLOAD, engine="container", load_ms=0)
         assert report.contacted_domains == ["tracker.test"]
 
     def test_dom_is_truncated_and_hashed(self) -> None:
@@ -266,9 +264,31 @@ class TestStaticInspector:
 
 
 class TestDefaultInspector:
-    def test_picks_static_when_docker_is_absent(self) -> None:
-        inspector = default_inspector(SandboxConfig(docker_binary="not-a-real-binary"))
+    def test_fails_closed_when_no_container_runtime_exists(self) -> None:
+        """Silently degrading would mean an operator who believes they are
+        detonating a hostile page behind an isolation boundary is in fact
+        fetching it from the host."""
+        from security_assistant.threat.sandbox import SandboxUnavailableError
+
+        with pytest.raises(SandboxUnavailableError, match="Refusing to fall back"):
+            default_inspector(SandboxConfig(docker_binary="not-a-real-binary"))
+
+    def test_static_fallback_requires_an_explicit_opt_in(self) -> None:
+        inspector = default_inspector(
+            SandboxConfig(docker_binary="not-a-real-binary"),
+            allow_static_fallback=True,
+        )
         assert isinstance(inspector, StaticInspector)
+
+    def test_the_refusal_names_the_flag_that_overrides_it(self) -> None:
+        from security_assistant.threat.sandbox import SandboxUnavailableError
+
+        try:
+            default_inspector(SandboxConfig(docker_binary="not-a-real-binary"))
+        except SandboxUnavailableError as exc:
+            assert "--allow-static-fallback" in str(exc)
+        else:  # pragma: no cover - must raise
+            raise AssertionError("expected a refusal")
 
     def test_docker_available_probes_path(self) -> None:
         assert docker_available("definitely-not-on-path") is False

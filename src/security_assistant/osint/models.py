@@ -86,9 +86,32 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 # match key drops these while `Entity.value` keeps the name as observed.
 _ORG_SUFFIXES = frozenset(
     {
-        "inc", "incorporated", "llc", "l.l.c", "ltd", "limited", "corp",
-        "corporation", "co", "company", "gmbh", "ag", "sa", "sas", "bv", "nv",
-        "plc", "pty", "pvt", "oy", "ab", "as", "srl", "spa", "kk", "kg",
+        "inc",
+        "incorporated",
+        "llc",
+        "l.l.c",
+        "ltd",
+        "limited",
+        "corp",
+        "corporation",
+        "co",
+        "company",
+        "gmbh",
+        "ag",
+        "sa",
+        "sas",
+        "bv",
+        "nv",
+        "plc",
+        "pty",
+        "pvt",
+        "oy",
+        "ab",
+        "as",
+        "srl",
+        "spa",
+        "kk",
+        "kg",
     }
 )
 
@@ -535,9 +558,7 @@ def normalize_file_hash(value: str) -> str:
     if not text:
         raise ValueError("File hash must not be empty")
     if len(text) not in _HASH_LENGTHS:
-        raise ValueError(
-            f"Not an MD5/SHA-1/SHA-256 hash (got {len(text)} chars): {value!r}"
-        )
+        raise ValueError(f"Not an MD5/SHA-1/SHA-256 hash (got {len(text)} chars): {value!r}")
     if any(c not in "0123456789abcdef" for c in text):
         raise ValueError(f"File hash contains non-hex characters: {value!r}")
     return text
@@ -671,8 +692,7 @@ class Entity:
         """
         if other.key != self.key:
             raise ValueError(
-                f"Refusing to merge entities with different keys: "
-                f"{self.key!r} vs {other.key!r}"
+                f"Refusing to merge entities with different keys: {self.key!r} vs {other.key!r}"
             )
 
         for name, attr_value in other.attributes.items():
@@ -736,9 +756,7 @@ class Relationship:
         target_key = target.key if isinstance(target, Entity) else target
         if source_key == target_key:
             raise ValueError(f"Refusing to create a self-loop on {source_key!r}")
-        observations = (
-            [Observation(source=source_tool, detail=detail)] if source_tool else []
-        )
+        observations = [Observation(source=source_tool, detail=detail)] if source_tool else []
         return cls(
             source_key=source_key,
             target_key=target_key,

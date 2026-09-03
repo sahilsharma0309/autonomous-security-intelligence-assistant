@@ -35,12 +35,13 @@ jobs:
       - name: Install tooling
         run: pip install -r requirements-dev.txt
 
-      # Lint only. `ruff format --check` is deliberately NOT a gate yet: the
-      # existing tree predates the formatter and 28 files would need
-      # reformatting, which is a repo-wide change that should land on its own
-      # rather than riding along with a feature PR.
       - name: ruff check
         run: ruff check src/ tests/ --output-format=github
+
+      # Formatting is now a gate. The whole tree was formatted in the same
+      # change that added this step, so it starts and stays clean.
+      - name: ruff format --check
+        run: ruff format --check src/ tests/
 
   typecheck:
     name: mypy --strict

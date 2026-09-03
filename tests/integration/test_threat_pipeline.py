@@ -193,9 +193,7 @@ class TestAgentDrivenScan:
 
     def test_score_rises_once_evidence_is_aggregated(self) -> None:
         agent = Agent(threat_registry(), scope())
-        result = asyncio.run(
-            agent.run("Assess", target=PHISH_URL, context=threat_context())
-        )
+        result = asyncio.run(agent.run("Assess", target=PHISH_URL, context=threat_context()))
         values = result.values_by_tool()
 
         heuristics_only = values["threat.url_analyze"]["risk_score"]
@@ -206,9 +204,7 @@ class TestAgentDrivenScan:
 
     def test_sandbox_evidence_reaches_the_score(self) -> None:
         agent = Agent(threat_registry(), scope())
-        result = asyncio.run(
-            agent.run("Assess", target=PHISH_URL, context=threat_context())
-        )
+        result = asyncio.run(agent.run("Assess", target=PHISH_URL, context=threat_context()))
         scored = result.values_by_tool()["threat.url_score"]
         codes = {f["code"] for f in scored["findings"]}
         assert "cross_domain_redirect" in codes
@@ -219,9 +215,7 @@ class TestAgentDrivenScan:
 class TestGraphProjection:
     def _graph(self, engine: str = "container") -> EntityGraph:
         agent = Agent(threat_registry(), scope())
-        result = asyncio.run(
-            agent.run("Assess", target=PHISH_URL, context=threat_context(engine))
-        )
+        result = asyncio.run(agent.run("Assess", target=PHISH_URL, context=threat_context(engine)))
         return build_graph_from_payloads(result.values_by_tool().values())
 
     def test_url_host_and_redirect_target_are_all_nodes(self) -> None:
@@ -237,16 +231,12 @@ class TestGraphProjection:
             "url:https://paypa1.com/login", "url:https://collector.example/harvest"
         )
         assert path
-        assert any(
-            r.type is EdgeType.REDIRECTS_TO for r in graph.relationships
-        )
+        assert any(r.type is EdgeType.REDIRECTS_TO for r in graph.relationships)
 
     def test_contacted_hosts_and_file_hashes_are_linked(self) -> None:
         graph = self._graph()
         assert "domain:cdn.example" in graph
-        assert (
-            "file_hash:da39a3ee5e6b4b0d3255bfef95601890afd80709" in graph
-        )
+        assert "file_hash:da39a3ee5e6b4b0d3255bfef95601890afd80709" in graph
         kinds = {r.type for r in graph.relationships}
         assert EdgeType.CONTACTS in kinds
         assert EdgeType.REFERENCES_FILE in kinds
@@ -298,9 +288,7 @@ class TestCrossModuleGraph:
         assert "url:https://paypa1.com/login" in graph
         assert "ip_address:203.0.113.77" in graph
 
-        path = graph.shortest_path(
-            "url:https://paypa1.com/login", "ip_address:203.0.113.77"
-        )
+        path = graph.shortest_path("url:https://paypa1.com/login", "ip_address:203.0.113.77")
         assert path, "threat and OSINT findings should be connected"
         assert len(graph.components()) < len(graph)
 
@@ -341,9 +329,7 @@ class TestAuthorizationAcrossTheStack:
         context = {**threat_context(), "sandbox_inspector": inspector}
         agent = Agent(threat_registry(), scope(max_risk=RiskLevel.PASSIVE))
 
-        result = asyncio.run(
-            agent.run("Passive triage", target=PHISH_URL, context=context)
-        )
+        result = asyncio.run(agent.run("Passive triage", target=PHISH_URL, context=context))
 
         assert result.status is TaskStatus.SUCCEEDED
         assert inspector.inspected == []
@@ -366,9 +352,7 @@ class TestAuthorizationAcrossTheStack:
         agent = Agent(threat_registry(), scope())
 
         result = asyncio.run(
-            agent.run(
-                "Assess", target="https://unauthorized.test/login", context=context
-            )
+            agent.run("Assess", target="https://unauthorized.test/login", context=context)
         )
 
         assert result.status is TaskStatus.FAILED

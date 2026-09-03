@@ -279,9 +279,7 @@ def certificate_to_graph_elements(
         if san == root.canonical:
             continue
         try:
-            covered = Entity.create(
-                EntityType.DOMAIN, san, source=source, detail="certificate SAN"
-            )
+            covered = Entity.create(EntityType.DOMAIN, san, source=source, detail="certificate SAN")
         except ValueError:
             logger.debug("Skipping unparseable SAN %r", san)
             continue

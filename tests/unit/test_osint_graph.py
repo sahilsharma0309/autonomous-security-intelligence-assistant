@@ -80,9 +80,7 @@ class TestMutation:
     def test_remove_entity_removes_its_edges(self, graph: EntityGraph) -> None:
         assert graph.remove_entity("ip_address:93.184.216.34")
         assert len(graph) == 3
-        assert all(
-            r.target_key != "ip_address:93.184.216.34" for r in graph.relationships
-        )
+        assert all(r.target_key != "ip_address:93.184.216.34" for r in graph.relationships)
 
     def test_remove_missing_entity_is_false(self, graph: EntityGraph) -> None:
         assert graph.remove_entity("domain:nope.com") is False
@@ -100,9 +98,7 @@ class TestMergeEntities:
         assert len(graph) == 3
         # The www node's RESOLVES_TO edge is now the apex's; it already had an
         # identical one, so the two collapse into a single edge.
-        resolves = [
-            r for r in graph.relationships if r.type is EdgeType.RESOLVES_TO
-        ]
+        resolves = [r for r in graph.relationships if r.type is EdgeType.RESOLVES_TO]
         assert len(resolves) == 1
         assert resolves[0].source_key == "domain:example.com"
 
@@ -212,9 +208,7 @@ class TestJsonExport:
 
         assert len(restored) == len(graph)
         assert {e.key for e in restored} == {e.key for e in graph}
-        assert {r.key for r in restored.relationships} == {
-            r.key for r in graph.relationships
-        }
+        assert {r.key for r in restored.relationships} == {r.key for r in graph.relationships}
 
     def test_round_trip_preserves_provenance(self) -> None:
         g = EntityGraph()

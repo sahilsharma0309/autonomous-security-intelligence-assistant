@@ -84,9 +84,7 @@ class TestDeception:
         assert "brand_in_subdomain" in found
 
     def test_detects_phishing_keywords_in_host(self, analyzer: UrlAnalyzer) -> None:
-        assert "phishing_keyword_host" in codes(
-            analyzer, "https://secure.verify.example.com/"
-        )
+        assert "phishing_keyword_host" in codes(analyzer, "https://secure.verify.example.com/")
 
     def test_the_real_brand_is_not_flagged(self, analyzer: UrlAnalyzer) -> None:
         """paypal.com must never be reported as imitating paypal.com."""
@@ -95,9 +93,7 @@ class TestDeception:
         assert "lookalike_domain" not in found
         assert "brand_in_subdomain" not in found
 
-    def test_brand_subdomain_of_the_brand_itself_is_fine(
-        self, analyzer: UrlAnalyzer
-    ) -> None:
+    def test_brand_subdomain_of_the_brand_itself_is_fine(self, analyzer: UrlAnalyzer) -> None:
         found = codes(analyzer, "https://login.paypal.com/")
         assert "brand_in_subdomain" not in found
 
@@ -126,9 +122,7 @@ class TestStructure:
         assert "plaintext_scheme" not in codes(analyzer, "https://example.com/")
 
     def test_excessive_length(self, analyzer: UrlAnalyzer) -> None:
-        assert "excessive_length" in codes(
-            analyzer, "https://example.com/" + "a" * 200
-        )
+        assert "excessive_length" in codes(analyzer, "https://example.com/" + "a" * 200)
 
     def test_deep_subdomains(self, analyzer: UrlAnalyzer) -> None:
         assert "deep_subdomain" in codes(analyzer, "https://a.b.c.d.e.example.com/")
@@ -152,9 +146,7 @@ class TestHosting:
         assert "uncommon_port" in codes(analyzer, "https://example.com:8443/")
 
     def test_random_looking_subdomain(self, analyzer: UrlAnalyzer) -> None:
-        assert "random_subdomain" in codes(
-            analyzer, "https://a3f9c2e1b7d40582.example.com/"
-        )
+        assert "random_subdomain" in codes(analyzer, "https://a3f9c2e1b7d40582.example.com/")
 
     def test_ordinary_site_is_clean(self, analyzer: UrlAnalyzer) -> None:
         assert codes(analyzer, "https://www.example.com/about") == set()
@@ -201,20 +193,14 @@ class TestCertificate:
 
 class TestSandboxFindings:
     def test_cross_domain_redirect(self, analyzer: UrlAnalyzer) -> None:
-        report = SandboxReport(
-            initial_url="https://a.example/", final_url="https://b.example/"
-        )
-        assert "cross_domain_redirect" in {
-            f.code for f in analyzer.analyze_sandbox(report)
-        }
+        report = SandboxReport(initial_url="https://a.example/", final_url="https://b.example/")
+        assert "cross_domain_redirect" in {f.code for f in analyzer.analyze_sandbox(report)}
 
     def test_same_domain_redirect_is_not_flagged(self, analyzer: UrlAnalyzer) -> None:
         report = SandboxReport(
             initial_url="https://www.example.com/", final_url="https://example.com/home"
         )
-        assert "cross_domain_redirect" not in {
-            f.code for f in analyzer.analyze_sandbox(report)
-        }
+        assert "cross_domain_redirect" not in {f.code for f in analyzer.analyze_sandbox(report)}
 
     def test_long_chain(self, analyzer: UrlAnalyzer) -> None:
         report = SandboxReport(
@@ -232,9 +218,7 @@ class TestSandboxFindings:
         )
         assert "credential_form" in {f.code for f in analyzer.analyze_sandbox(report)}
 
-    def test_static_engine_is_declared_as_reduced_coverage(
-        self, analyzer: UrlAnalyzer
-    ) -> None:
+    def test_static_engine_is_declared_as_reduced_coverage(self, analyzer: UrlAnalyzer) -> None:
         """An absent behavioural finding must not read as a clean result."""
         report = SandboxReport(
             initial_url="https://a.example/", final_url="https://a.example/", engine="static"
@@ -253,9 +237,7 @@ class TestSandboxFindings:
             final_url="https://a.example/",
             engine="container",
         )
-        assert "static_inspection_only" not in {
-            f.code for f in analyzer.analyze_sandbox(report)
-        }
+        assert "static_inspection_only" not in {f.code for f in analyzer.analyze_sandbox(report)}
 
 
 class TestFullAnalysis:

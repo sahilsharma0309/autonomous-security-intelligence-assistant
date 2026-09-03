@@ -403,9 +403,7 @@ def _host_entity(host: str, source: str, detail: str) -> Entity | None:
     if not host:
         return None
     try:
-        return Entity.create(
-            EntityType.IP_ADDRESS, host, source=source, detail=detail
-        )
+        return Entity.create(EntityType.IP_ADDRESS, host, source=source, detail=detail)
     except ValueError:
         pass
     try:
@@ -453,9 +451,7 @@ def assessment_to_graph_elements(
         return [], []
     entities.append(root)
 
-    def link(
-        target: Entity | None, edge: EdgeType, confidence: float, detail: str
-    ) -> None:
+    def link(target: Entity | None, edge: EdgeType, confidence: float, detail: str) -> None:
         if target is None or target.key == root.key:
             return
         entities.append(target)
@@ -596,9 +592,7 @@ def verdicts_to_graph_elements(
                     attributes=attributes,
                 )
             else:
-                entity = _host_entity(
-                    verdict.indicator, source, f"{verdict.source} verdict"
-                )
+                entity = _host_entity(verdict.indicator, source, f"{verdict.source} verdict")
                 if entity is not None:
                     entity.attributes.update(attributes)
         except ValueError:
@@ -640,11 +634,38 @@ def registrable_domain(host: str) -> str:
 
 _MULTI_LABEL_SUFFIXES = frozenset(
     {
-        "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "net.uk",
-        "com.au", "net.au", "org.au", "edu.au", "gov.au",
-        "co.nz", "net.nz", "org.nz", "co.za", "co.jp", "ne.jp", "or.jp",
-        "com.br", "com.cn", "com.mx", "com.tr", "com.tw", "com.sg", "com.hk",
-        "co.in", "co.kr", "co.il", "com.ar", "com.co", "com.pe", "com.ua",
+        "co.uk",
+        "org.uk",
+        "ac.uk",
+        "gov.uk",
+        "me.uk",
+        "net.uk",
+        "com.au",
+        "net.au",
+        "org.au",
+        "edu.au",
+        "gov.au",
+        "co.nz",
+        "net.nz",
+        "org.nz",
+        "co.za",
+        "co.jp",
+        "ne.jp",
+        "or.jp",
+        "com.br",
+        "com.cn",
+        "com.mx",
+        "com.tr",
+        "com.tw",
+        "com.sg",
+        "com.hk",
+        "co.in",
+        "co.kr",
+        "co.il",
+        "com.ar",
+        "com.co",
+        "com.pe",
+        "com.ua",
     }
 )
 

@@ -179,12 +179,8 @@ class TestEntity:
         assert entity.sources == ["osint.dns", "osint.tls"]
 
     def test_merge_combines_confidence_and_attributes(self) -> None:
-        left = Entity.create(
-            EntityType.DOMAIN, "example.com", confidence=0.6, attributes={"a": 1}
-        )
-        right = Entity.create(
-            EntityType.DOMAIN, "example.com", confidence=0.6, attributes={"b": 2}
-        )
+        left = Entity.create(EntityType.DOMAIN, "example.com", confidence=0.6, attributes={"a": 1})
+        right = Entity.create(EntityType.DOMAIN, "example.com", confidence=0.6, attributes={"b": 2})
         merged = left.merge(right)
         assert merged.confidence == pytest.approx(0.84)
         assert merged.attributes == {"a": 1, "b": 2}

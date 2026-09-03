@@ -143,9 +143,7 @@ class TestDnsCollector:
         assert "domain:mail.example.com" in {e["key"] for e in result["entities"]}
 
     def test_extracts_emails_from_txt_records(self) -> None:
-        resolver = FakeDnsResolver(
-            {"TXT": ["v=DMARC1; rua=mailto:dmarc@example.com; p=none"]}
-        )
+        resolver = FakeDnsResolver({"TXT": ["v=DMARC1; rua=mailto:dmarc@example.com; p=none"]})
         result = run(
             dns_collect.invoke(
                 ctx(dns_resolver=resolver), {"target": "example.com", "record_types": ["TXT"]}
@@ -227,9 +225,7 @@ class TestWhoisCollector:
                 "creation_date": "2001-01-01T00:00:00",
             }
         )
-        result = run(
-            whois_collect.invoke(ctx(whois_client=client), {"target": "example.com"})
-        )
+        result = run(whois_collect.invoke(ctx(whois_client=client), {"target": "example.com"}))
 
         assert result["registrant_org"] == "Acme Inc."
         assert result["emails"] == ["admin@example.com"]
@@ -356,9 +352,7 @@ class TestTlsCollector:
     def test_honours_verify_flag(self) -> None:
         fetcher = FakeTlsFetcher(self.CERT)
         run(
-            tls_collect.invoke(
-                ctx(tls_fetcher=fetcher), {"target": "example.com", "verify": False}
-            )
+            tls_collect.invoke(ctx(tls_fetcher=fetcher), {"target": "example.com", "verify": False})
         )
         assert fetcher.calls == [("example.com", 443, False)]
 
@@ -373,9 +367,7 @@ class TestSocialCollector:
     HOOK = PlatformHook(name="examplehub", url_template="https://examplehub.test/u/{username}")
 
     def test_no_platforms_configured_returns_empty_and_says_so(self) -> None:
-        result = run(
-            social_footprint.invoke(ctx(), {"target": "example.com", "username": "alice"})
-        )
+        result = run(social_footprint.invoke(ctx(), {"target": "example.com", "username": "alice"}))
         assert result["configured"] is False
         assert result["platforms_checked"] == 0
         assert result["entities"] == []
@@ -475,11 +467,7 @@ class TestSocialCollector:
 
     def test_rejects_overlong_username(self) -> None:
         with pytest.raises(CollectorError, match="exceeds"):
-            run(
-                social_footprint.invoke(
-                    ctx(), {"target": "example.com", "username": "a" * 200}
-                )
-            )
+            run(social_footprint.invoke(ctx(), {"target": "example.com", "username": "a" * 200}))
 
     def test_rejects_malformed_platform_config(self) -> None:
         with pytest.raises(CollectorError):
@@ -580,13 +568,9 @@ class TestDispatchIntegration:
 
     def test_collector_failure_becomes_a_failed_result_not_an_exception(self) -> None:
         dispatcher = self._dispatcher()
-        context = ToolContext(
-            scope=dispatcher.scope, config={"dns_resolver": FakeDnsResolver({})}
-        )
+        context = ToolContext(scope=dispatcher.scope, config={"dns_resolver": FakeDnsResolver({})})
         result = run(
-            dispatcher.call(
-                "osint.dns", context, target="example.com", record_types=["BOOM"]
-            )
+            dispatcher.call("osint.dns", context, target="example.com", record_types=["BOOM"])
         )
         assert result.status is InvocationStatus.ERROR
         assert result.error_type == "CollectorError"

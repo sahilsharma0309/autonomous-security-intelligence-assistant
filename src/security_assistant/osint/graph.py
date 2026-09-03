@@ -236,8 +236,7 @@ class EntityGraph:
 
         if primary.type is not duplicate.type:
             raise ValueError(
-                f"Refusing to merge entities of different types: "
-                f"{primary.type} vs {duplicate.type}"
+                f"Refusing to merge entities of different types: {primary.type} vs {duplicate.type}"
             )
 
         # Same type but different canonical value: keep the duplicate's value
@@ -261,15 +260,11 @@ class EntityGraph:
         for edge_key in list(self._out.get(duplicate_key, set())):
             relationship = self._relationships[edge_key]
             if relationship.target_key != primary_key:
-                rewired.append(
-                    self._rebuild(relationship, primary_key, relationship.target_key)
-                )
+                rewired.append(self._rebuild(relationship, primary_key, relationship.target_key))
         for edge_key in list(self._in.get(duplicate_key, set())):
             relationship = self._relationships[edge_key]
             if relationship.source_key != primary_key:
-                rewired.append(
-                    self._rebuild(relationship, relationship.source_key, primary_key)
-                )
+                rewired.append(self._rebuild(relationship, relationship.source_key, primary_key))
 
         self.remove_entity(duplicate_key)
         for relationship in rewired:
@@ -279,9 +274,7 @@ class EntityGraph:
         return primary
 
     @staticmethod
-    def _rebuild(
-        relationship: Relationship, source_key: str, target_key: str
-    ) -> Relationship:
+    def _rebuild(relationship: Relationship, source_key: str, target_key: str) -> Relationship:
         """Copy a relationship onto new endpoints, preserving provenance."""
         return Relationship(
             source_key=source_key,
@@ -569,8 +562,7 @@ class EntityGraph:
         version = payload.get("schema_version")
         if version != JSON_SCHEMA_VERSION:
             raise ValueError(
-                f"Unsupported graph schema version {version!r}; "
-                f"expected {JSON_SCHEMA_VERSION!r}"
+                f"Unsupported graph schema version {version!r}; expected {JSON_SCHEMA_VERSION!r}"
             )
 
         graph = cls(name=str(payload.get("name", "osint")))

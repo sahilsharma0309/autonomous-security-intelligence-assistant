@@ -65,10 +65,7 @@ class TestClassifyDevice:
 
     def test_banner_evidence_beats_protocol_convention(self) -> None:
         # Port 554 suggests a camera, but the banner says otherwise.
-        assert (
-            classify_device("Synology DiskStation", ServiceProtocol.RTSP, 554)
-            == DeviceClass.NAS
-        )
+        assert classify_device("Synology DiskStation", ServiceProtocol.RTSP, 554) == DeviceClass.NAS
 
     def test_unknown_stays_unknown(self) -> None:
         # Refusing to guess is the correct behaviour here.

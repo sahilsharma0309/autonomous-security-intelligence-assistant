@@ -111,9 +111,7 @@ def collection_context() -> dict[str, Any]:
         "tls_fetcher": ScriptedTls(),
         "profile_probe": ScriptedProbe({"https://examplehub.test/u/acme"}),
         "social_platforms": [
-            PlatformHook(
-                name="examplehub", url_template="https://examplehub.test/u/{username}"
-            )
+            PlatformHook(name="examplehub", url_template="https://examplehub.test/u/{username}")
         ],
         "username": "acme",
     }
@@ -236,9 +234,7 @@ class TestAuthorizationAcrossTheStack:
     def test_out_of_scope_target_collects_nothing(self) -> None:
         agent = Agent(osint_registry(), engagement_scope())
         result = asyncio.run(
-            agent.run(
-                "Map surface", target="not-authorized.net", context=collection_context()
-            )
+            agent.run("Map surface", target="not-authorized.net", context=collection_context())
         )
 
         assert result.status is TaskStatus.FAILED
@@ -274,12 +270,8 @@ class TestAuthorizationAcrossTheStack:
                 return await super().resolve(name, record_type)
 
         context["dns_resolver"] = CountingResolver()
-        agent = Agent(
-            osint_registry(), engagement_scope(), config=AgentConfig(dry_run=True)
-        )
-        result = asyncio.run(
-            agent.run("Map surface", target="example.com", context=context)
-        )
+        agent = Agent(osint_registry(), engagement_scope(), config=AgentConfig(dry_run=True))
+        result = asyncio.run(agent.run("Map surface", target="example.com", context=context))
 
         assert result.status is TaskStatus.SUCCEEDED
         assert calls == []
@@ -319,9 +311,7 @@ class TestCollectorFailureIsolation:
 
         context = {**collection_context(), "dns_resolver": BrokenResolver()}
         agent = Agent(osint_registry(), engagement_scope())
-        result = asyncio.run(
-            agent.run("Map surface", target="example.com", context=context)
-        )
+        result = asyncio.run(agent.run("Map surface", target="example.com", context=context))
 
         failed = {r.tool_name for r in result.failures}
         succeeded = {r.tool_name for r in result.succeeded}

@@ -100,9 +100,7 @@ def _normalized_url(target: str) -> str:
         raise ThreatToolError(f"Invalid URL {target!r}: {exc}") from exc
 
 
-def _graph_payload(
-    entities: Sequence[Any], relationships: Sequence[Any]
-) -> dict[str, Any]:
+def _graph_payload(entities: Sequence[Any], relationships: Sequence[Any]) -> dict[str, Any]:
     return {
         "entities": [e.to_dict() for e in entities],
         "relationships": [r.to_dict() for r in relationships],
@@ -147,17 +145,14 @@ async def url_analyze(
         findings.extend(analyzer.analyze_certificate(url, certificate))
 
     assessment = UrlAssessment(url=url, findings=findings)
-    entities, relationships = assessment_to_graph_elements(
-        assessment, source="threat.url_analyze"
-    )
+    entities, relationships = assessment_to_graph_elements(assessment, source="threat.url_analyze")
     return {**assessment.to_dict(), **_graph_payload(entities, relationships)}
 
 
 @tool(
     name="threat.virustotal",
     description=(
-        "Look up an indicator (URL, domain, IP or file hash) in VirusTotal's "
-        "existing index."
+        "Look up an indicator (URL, domain, IP or file hash) in VirusTotal's existing index."
     ),
     category=ToolCategory.ANALYSIS,
     risk=RiskLevel.PASSIVE,
@@ -182,9 +177,7 @@ async def domain_reputation(
     kind = (indicator_type or _infer_indicator_type(target)).strip().lower()
     indicator = _canonical_indicator(kind, target)
 
-    client = provider_from(
-        ctx, "virustotal_client", vt_module.default_virustotal_client
-    )
+    client = provider_from(ctx, "virustotal_client", vt_module.default_virustotal_client)
     payload = await client.report(kind, indicator)
 
     parser = {
@@ -197,9 +190,7 @@ async def domain_reputation(
         raise ThreatToolError(f"Unsupported indicator type: {kind!r}")
 
     verdict = parser(payload, indicator)
-    entities, relationships = verdicts_to_graph_elements(
-        [verdict], source="threat.virustotal"
-    )
+    entities, relationships = verdicts_to_graph_elements([verdict], source="threat.virustotal")
     return {
         **verdict.to_dict(),
         "found": bool(payload),
@@ -215,27 +206,21 @@ async def domain_reputation(
     risk=RiskLevel.PASSIVE,
     parameters=[
         ToolParameter("target", str, description="URL or domain to search for"),
-        ToolParameter(
-            "size", int, required=False, default=20, description="Maximum results"
-        ),
+        ToolParameter("size", int, required=False, default=20, description="Maximum results"),
     ],
     timeout_seconds=45.0,
     rate_limit_per_minute=30.0,
     produces=["reputation"],
     tags=["threat", "reputation"],
 )
-async def urlscan_search(
-    ctx: ToolContext, target: str, size: int = 20
-) -> dict[str, Any]:
+async def urlscan_search(ctx: ToolContext, target: str, size: int = 20) -> dict[str, Any]:
     """Query existing URLScan results. The target is never contacted."""
     client = provider_from(ctx, "urlscan_client", urlscan_module.default_urlscan_client)
     query = f'page.domain:"{_query_domain(target)}"'
     payload = await client.search(query, size=size)
 
     verdict = urlscan_module.parse_search(payload, target)
-    entities, relationships = verdicts_to_graph_elements(
-        [verdict], source="threat.urlscan"
-    )
+    entities, relationships = verdicts_to_graph_elements([verdict], source="threat.urlscan")
     return {
         **verdict.to_dict(),
         "query": query,
@@ -327,7 +312,14 @@ async def url_inspect(ctx: ToolContext, target: str) -> dict[str, Any]:
         # fetch an internal address on an attacker's behalf.
         raise ThreatToolError(str(exc)) from exc
 
-    inspector = provider_from(ctx, "sandbox_inspector", default_inspector)
+    # Fails closed: without a container runtime this raises unless the
+    # operator explicitly accepted degraded inspection.
+    allow_fallback = bool(ctx.config.get("allow_static_fallback", False))
+    inspector = provider_from(
+        ctx,
+        "sandbox_inspector",
+        lambda: default_inspector(allow_static_fallback=allow_fallback),
+    )
     try:
         report = await inspector.inspect(url)
     except SandboxError as exc:
@@ -336,9 +328,7 @@ async def url_inspect(ctx: ToolContext, target: str) -> dict[str, Any]:
     analyzer = _analyzer(ctx)
     findings = analyzer.analyze_sandbox(report)
     assessment = UrlAssessment(url=url, findings=findings, sandbox=report)
-    entities, relationships = assessment_to_graph_elements(
-        assessment, source="threat.url_inspect"
-    )
+    entities, relationships = assessment_to_graph_elements(assessment, source="threat.url_inspect")
     return {**assessment.to_dict(), **_graph_payload(entities, relationships)}
 
 
@@ -413,9 +403,7 @@ async def url_score(
     assessment = UrlAssessment(
         url=url, findings=list(unique.values()), verdicts=verdicts, sandbox=sandbox
     )
-    entities, relationships = assessment_to_graph_elements(
-        assessment, source="threat.url_score"
-    )
+    entities, relationships = assessment_to_graph_elements(assessment, source="threat.url_score")
     return {
         **assessment.to_dict(),
         "evidence_count": len(payloads),

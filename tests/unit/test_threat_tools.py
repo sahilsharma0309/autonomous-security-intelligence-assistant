@@ -159,13 +159,9 @@ class TestUrlAnalyze:
 
 class TestVirusTotalTool:
     def test_looks_up_and_normalizes(self) -> None:
-        client = FakeVirusTotal(
-            {"data": {"attributes": {"last_analysis_stats": {"malicious": 5}}}}
-        )
+        client = FakeVirusTotal({"data": {"attributes": {"last_analysis_stats": {"malicious": 5}}}})
         result = run(
-            domain_reputation.invoke(
-                ctx(virustotal_client=client), {"target": "phish.example"}
-            )
+            domain_reputation.invoke(ctx(virustotal_client=client), {"target": "phish.example"})
         )
         assert result["malicious"] == 5
         assert result["found"] is True
@@ -208,16 +204,12 @@ class TestVirusTotalTool:
         client = FakeVirusTotal(
             {
                 "data": {
-                    "attributes": {
-                        "last_dns_records": [{"type": "A", "value": "93.184.216.34"}]
-                    }
+                    "attributes": {"last_dns_records": [{"type": "A", "value": "93.184.216.34"}]}
                 }
             }
         )
         result = run(
-            domain_reputation.invoke(
-                ctx(virustotal_client=client), {"target": "example.com"}
-            )
+            domain_reputation.invoke(ctx(virustotal_client=client), {"target": "example.com"})
         )
         assert result["passive_dns"] == ["93.184.216.34"]
 
@@ -240,9 +232,7 @@ class TestUrlscanTools:
     def test_submit_defaults_to_unlisted(self) -> None:
         client = FakeUrlscan()
         result = run(
-            urlscan_submit.invoke(
-                ctx(urlscan_client=client), {"target": "https://phish.example/"}
-            )
+            urlscan_submit.invoke(ctx(urlscan_client=client), {"target": "https://phish.example/"})
         )
         assert result["scan_id"] == "scan-1"
         assert client.submissions[0][1].visibility == "unlisted"
@@ -269,11 +259,7 @@ class TestUrlscanTools:
     def test_submit_refuses_an_internal_url(self) -> None:
         client = FakeUrlscan()
         with pytest.raises(ThreatToolError):
-            run(
-                urlscan_submit.invoke(
-                    ctx(urlscan_client=client), {"target": "http://127.0.0.1/"}
-                )
-            )
+            run(urlscan_submit.invoke(ctx(urlscan_client=client), {"target": "http://127.0.0.1/"}))
         assert client.submissions == []
 
 
@@ -288,9 +274,7 @@ class TestUrlInspect:
             )
         )
         result = run(
-            url_inspect.invoke(
-                ctx(sandbox_inspector=inspector), {"target": "https://a.example/"}
-            )
+            url_inspect.invoke(ctx(sandbox_inspector=inspector), {"target": "https://a.example/"})
         )
         assert inspector.inspected == ["https://a.example/"]
         assert result["sandbox"]["engine"] == "container"
@@ -317,9 +301,7 @@ class TestUrlInspect:
             )
         )
         result = run(
-            url_inspect.invoke(
-                ctx(sandbox_inspector=inspector), {"target": "https://a.example/"}
-            )
+            url_inspect.invoke(ctx(sandbox_inspector=inspector), {"target": "https://a.example/"})
         )
         assert any(f["code"] == "static_inspection_only" for f in result["findings"])
 
@@ -446,9 +428,7 @@ class TestUrlScore:
         context.state["threat.url_analyze"] = heuristics
 
         result = run(
-            url_score.invoke(
-                context, {"target": "https://paypa1.com/login", "evidence": []}
-            )
+            url_score.invoke(context, {"target": "https://paypa1.com/login", "evidence": []})
         )
         assert result["evidence_count"] == 0
 
@@ -461,14 +441,10 @@ class TestUrlScore:
             )
         )
         inspected = run(
-            url_inspect.invoke(
-                ctx(sandbox_inspector=inspector), {"target": "https://a.example/"}
-            )
+            url_inspect.invoke(ctx(sandbox_inspector=inspector), {"target": "https://a.example/"})
         )
         result = run(
-            url_score.invoke(
-                ctx(), {"target": "https://a.example/", "evidence": [inspected]}
-            )
+            url_score.invoke(ctx(), {"target": "https://a.example/", "evidence": [inspected]})
         )
         assert result["sandbox"] is not None
         assert result["sandbox"]["final_url"] == "https://b.example/"
@@ -491,9 +467,7 @@ class TestAuthorizationBoundary:
         inspector = FakeInspector()
         context = ToolContext(scope=dispatcher.scope, config={"sandbox_inspector": inspector})
         result = run(
-            dispatcher.call(
-                "threat.url_inspect", context, target="https://phish.example/"
-            )
+            dispatcher.call("threat.url_inspect", context, target="https://phish.example/")
         )
         assert result.status is InvocationStatus.DENIED
         assert inspector.inspected == []
@@ -503,9 +477,7 @@ class TestAuthorizationBoundary:
         client = FakeUrlscan()
         context = ToolContext(scope=dispatcher.scope, config={"urlscan_client": client})
         result = run(
-            dispatcher.call(
-                "threat.urlscan_submit", context, target="https://phish.example/"
-            )
+            dispatcher.call("threat.urlscan_submit", context, target="https://phish.example/")
         )
         assert result.status is InvocationStatus.DENIED
         assert client.submissions == []
@@ -524,21 +496,15 @@ class TestAuthorizationBoundary:
         inspector = FakeInspector()
         context = ToolContext(scope=dispatcher.scope, config={"sandbox_inspector": inspector})
         result = run(
-            dispatcher.call(
-                "threat.url_inspect", context, target="https://not-authorized.test/"
-            )
+            dispatcher.call("threat.url_inspect", context, target="https://not-authorized.test/")
         )
         assert result.status is InvocationStatus.DENIED
         assert inspector.inspected == []
 
     def test_in_scope_active_target_runs(self) -> None:
         dispatcher = self._dispatcher(RiskLevel.ACTIVE)
-        context = ToolContext(
-            scope=dispatcher.scope, config={"sandbox_inspector": FakeInspector()}
-        )
+        context = ToolContext(scope=dispatcher.scope, config={"sandbox_inspector": FakeInspector()})
         result = run(
-            dispatcher.call(
-                "threat.url_inspect", context, target="https://phish.example/login"
-            )
+            dispatcher.call("threat.url_inspect", context, target="https://phish.example/login")
         )
         assert result.status is InvocationStatus.SUCCESS

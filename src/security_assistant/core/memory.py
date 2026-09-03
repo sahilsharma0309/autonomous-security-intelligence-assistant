@@ -265,9 +265,7 @@ class InMemoryVectorStore:
                 score = cosine_similarity(embedding, record.embedding)
             except ValueError:
                 # Dimension drift, e.g. after switching embedding providers.
-                logger.warning(
-                    "Skipping record %s: embedding dimension mismatch", record.id
-                )
+                logger.warning("Skipping record %s: embedding dimension mismatch", record.id)
                 continue
             hit = MemoryRecord(
                 id=record.id,
@@ -280,7 +278,7 @@ class InMemoryVectorStore:
             )
             scored.append(hit)
 
-        scored.sort(key=lambda r: (r.score or 0.0), reverse=True)
+        scored.sort(key=lambda r: r.score or 0.0, reverse=True)
         return scored[:k]
 
     async def get(self, record_id: str) -> MemoryRecord | None:

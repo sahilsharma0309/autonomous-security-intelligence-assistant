@@ -119,8 +119,7 @@ def _coerce_ports(raw: Sequence[Any] | None, fallback: Sequence[int]) -> list[in
 
     if len(ports) > _MAX_PORTS_PER_SCAN:
         raise CollectorError(
-            f"Refusing to scan {len(ports)} ports in one call; "
-            f"the limit is {_MAX_PORTS_PER_SCAN}"
+            f"Refusing to scan {len(ports)} ports in one call; the limit is {_MAX_PORTS_PER_SCAN}"
         )
     return sorted(set(ports))
 
@@ -149,9 +148,7 @@ async def shodan_host(ctx: ToolContext, target: str) -> dict[str, Any]:
     except ValueError as exc:
         raise CollectorError(f"Invalid host {target!r}: {exc}") from exc
 
-    client: IoTSearchClient = provider_from(
-        ctx, "iot_search_client", default_search_client
-    )
+    client: IoTSearchClient = provider_from(ctx, "iot_search_client", default_search_client)
     try:
         payload = await client.host(host)
     except ShodanError as exc:
@@ -177,13 +174,9 @@ async def shodan_host(ctx: ToolContext, target: str) -> dict[str, Any]:
     category=ToolCategory.OSINT,
     risk=RiskLevel.PASSIVE,
     parameters=[
-        ToolParameter(
-            "target", str, description="Authorized scope this search belongs to"
-        ),
+        ToolParameter("target", str, description="Authorized scope this search belongs to"),
         ToolParameter("query", str, description="Shodan search query"),
-        ToolParameter(
-            "limit", int, required=False, default=100, description="Maximum results"
-        ),
+        ToolParameter("limit", int, required=False, default=100, description="Maximum results"),
     ],
     timeout_seconds=60.0,
     rate_limit_per_minute=30.0,
@@ -210,9 +203,7 @@ async def shodan_search(
     if not 1 <= limit <= _MAX_SEARCH_LIMIT:
         raise CollectorError(f"limit must be between 1 and {_MAX_SEARCH_LIMIT}")
 
-    client: IoTSearchClient = provider_from(
-        ctx, "iot_search_client", default_search_client
-    )
+    client: IoTSearchClient = provider_from(ctx, "iot_search_client", default_search_client)
     try:
         payload = await client.search(query.strip(), limit=limit)
     except ShodanError as exc:
@@ -240,11 +231,16 @@ async def shodan_search(
     parameters=[
         ToolParameter("target", str, description="Host or IP to scan"),
         ToolParameter(
-            "ports", list, required=False,
+            "ports",
+            list,
+            required=False,
             description="Ports to scan; defaults to common IoT ports",
         ),
         ToolParameter(
-            "connect_timeout", float, required=False, default=3.0,
+            "connect_timeout",
+            float,
+            required=False,
+            default=3.0,
             description="Per-port connect timeout in seconds",
         ),
     ],
@@ -307,7 +303,9 @@ async def iot_scan(
     parameters=[
         ToolParameter("target", str, description="Host or IP to probe"),
         ToolParameter(
-            "ports", list, required=False,
+            "ports",
+            list,
+            required=False,
             description="Endpoint ports; defaults to common stream/web ports",
         ),
     ],
@@ -367,7 +365,9 @@ async def stream_probe(
     parameters=[
         ToolParameter("target", str, description="Host or IP to check"),
         ToolParameter(
-            "ports", list, required=False,
+            "ports",
+            list,
+            required=False,
             description="Control ports; defaults to Modbus/S7/DNP3/BACnet",
         ),
     ],
@@ -396,8 +396,7 @@ async def control_port_probe(
     non_control = sorted(set(requested) - set(INDUSTRIAL_PORTS))
     if non_control:
         raise CollectorError(
-            f"iot.control_port_probe only handles control ports; "
-            f"{non_control} belong to iot.scan"
+            f"iot.control_port_probe only handles control ports; {non_control} belong to iot.scan"
         )
 
     config = ScanConfig(ports=requested, include_industrial=True)

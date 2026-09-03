@@ -1,14 +1,10 @@
-import logging
+"""``python -m security_assistant`` entry point."""
 
-from security_assistant.orchestrator import Orchestrator
+from __future__ import annotations
 
-logging.basicConfig(level=logging.INFO)
+import sys
 
+from security_assistant.main import main
 
-def main() -> None:
-    orchestrator = Orchestrator()
-    orchestrator.run_assessment("example.com")
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover - process entry
+    sys.exit(main())

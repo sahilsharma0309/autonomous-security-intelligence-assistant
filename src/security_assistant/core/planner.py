@@ -218,9 +218,7 @@ class Plan:
             if step.status is not TaskStatus.PENDING:
                 continue
             if all(
-                by_id[dep].status is TaskStatus.SUCCEEDED
-                for dep in step.depends_on
-                if dep in by_id
+                by_id[dep].status is TaskStatus.SUCCEEDED for dep in step.depends_on if dep in by_id
             ):
                 ready.append(step)
         return ready
@@ -383,9 +381,7 @@ class RuleBasedPlanner:
             # username) is simply not applicable to a bare target, and saying
             # so here is more honest than dispatching it to fail.
             missing = sorted(
-                p.name
-                for p in spec.parameters
-                if p.required and p.name not in arguments
+                p.name for p in spec.parameters if p.required and p.name not in arguments
             )
             if missing:
                 unsatisfiable[spec.name] = missing

@@ -109,9 +109,7 @@ def _redact(text: str, secret: str) -> str:
 class IoTSearchClient(Protocol):
     """Queries an IoT search index."""
 
-    async def host(
-        self, ip: str
-    ) -> Mapping[str, Any]:  # pragma: no cover - protocol declaration
+    async def host(self, ip: str) -> Mapping[str, Any]:  # pragma: no cover - protocol declaration
         ...
 
     async def search(
@@ -327,8 +325,12 @@ def parse_shodan_host(payload: Mapping[str, Any]) -> DiscoveredDevice | None:
                     k: v
                     for k, v in (
                         ("shodan_timestamp", entry.get("timestamp")),
-                        ("shodan_module", entry.get("_shodan", {}).get("module")
-                         if isinstance(entry.get("_shodan"), Mapping) else None),
+                        (
+                            "shodan_module",
+                            entry.get("_shodan", {}).get("module")
+                            if isinstance(entry.get("_shodan"), Mapping)
+                            else None,
+                        ),
                     )
                     if v
                 },
@@ -412,9 +414,7 @@ def parse_shodan_search(payload: Mapping[str, Any]) -> list[DiscoveredDevice]:
                 host=ip,
                 device_class=fingerprint.device_class,
                 vendor=fingerprint.vendor,
-                hostnames=[
-                    str(h) for h in match.get("hostnames", []) or [] if str(h).strip()
-                ],
+                hostnames=[str(h) for h in match.get("hostnames", []) or [] if str(h).strip()],
                 services=[service],
                 source="iot.shodan_search",
                 confidence=INDEX_CONFIDENCE,

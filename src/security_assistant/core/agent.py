@@ -214,9 +214,7 @@ class Agent:
         self._registry = registry
         self._scope = scope or AuthorizationScope.deny_all()
         self._config = config or AgentConfig()
-        self._planner: PlannerStrategy = planner or RuleBasedPlanner(
-            max_risk=self._scope.max_risk
-        )
+        self._planner: PlannerStrategy = planner or RuleBasedPlanner(max_risk=self._scope.max_risk)
         self._memory = memory if memory is not None else LongTermMemory()
         self._refiner = refiner
         self._event_sink = event_sink
@@ -278,9 +276,7 @@ class Agent:
         """
         run_id = new_id("run")
         started = time.perf_counter()
-        outcome = AgentRunResult(
-            goal=goal, target=target, status=TaskStatus.RUNNING, run_id=run_id
-        )
+        outcome = AgentRunResult(goal=goal, target=target, status=TaskStatus.RUNNING, run_id=run_id)
 
         deadline = (
             time.monotonic() + self._config.run_timeout_seconds
@@ -315,9 +311,7 @@ class Agent:
                 await self._execute_run(goal, target, context, plan, ctx, outcome)
         except TimeoutError:
             outcome.status = TaskStatus.FAILED
-            outcome.error = (
-                f"Run exceeded its {self._config.run_timeout_seconds:.0f}s time budget"
-            )
+            outcome.error = f"Run exceeded its {self._config.run_timeout_seconds:.0f}s time budget"
             logger.error("Agent run timed out run_id=%s", run_id)
         except asyncio.CancelledError:
             outcome.status = TaskStatus.CANCELLED
@@ -574,9 +568,7 @@ class Agent:
             outcome.status = TaskStatus.FAILED
         outcome.metadata.setdefault("agent", self._config.name)
         outcome.metadata.setdefault("dry_run", self._config.dry_run)
-        outcome.metadata.setdefault(
-            "denied_count", sum(1 for r in outcome.results if r.denied)
-        )
+        outcome.metadata.setdefault("denied_count", sum(1 for r in outcome.results if r.denied))
 
     async def _emit(self, event: str, payload: dict[str, Any]) -> None:
         if self._event_sink is None:
