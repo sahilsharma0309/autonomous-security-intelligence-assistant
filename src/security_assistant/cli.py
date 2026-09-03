@@ -712,7 +712,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except KeyboardInterrupt:  # pragma: no cover - interactive
         err_console.print("[yellow]interrupted[/yellow]")
         return 130
-    except Exception as exc:  # noqa: BLE001 - CLI boundary: every failure becomes exit 1
+    except Exception as exc:
         err_console.print(f"[bold red]error:[/bold red] {exc}")
         logger.debug("CLI failed", exc_info=True)
         return 1

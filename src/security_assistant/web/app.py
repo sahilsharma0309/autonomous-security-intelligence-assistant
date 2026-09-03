@@ -527,7 +527,7 @@ def create_app(
                 await websocket.send_json(frame)
         except WebSocketDisconnect:
             pass
-        except Exception:  # noqa: BLE001 - a broken socket must not kill the app
+        except Exception:
             logger.debug("Telemetry socket closed with an error", exc_info=True)
         finally:
             runtime.state.broadcaster.unsubscribe(queue)
@@ -566,13 +566,13 @@ async def telemetry_pump(
             try:
                 report = await health.check()
                 state.update_health(report.to_dict())
-            except Exception:  # noqa: BLE001 - a bad sample must not stop the pump
+            except Exception:
                 logger.debug("Health sample failed", exc_info=True)
         if tunnel is not None:
             try:
                 status_obj = await tunnel.tick()
                 state.update_tunnel(status_obj.to_dict())
-            except Exception:  # noqa: BLE001 - a bad sample must not stop the pump
+            except Exception:
                 logger.debug("Tunnel sample failed", exc_info=True)
         if iterations is None or count < iterations:
             await asyncio.sleep(interval)
