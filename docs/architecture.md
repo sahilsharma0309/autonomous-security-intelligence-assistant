@@ -45,14 +45,14 @@ engine dispatches under a uniform safety policy.
                                    │       ToolRegistry        │
                                    └─────────────┬─────────────┘
                                                  │
-        ┌───────────────┬────────────────┬───────┴────────┬──────────────────┐
-        │               │                │                │                  │
-  ┌─────▼─────┐  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐   ┌───────▼──────┐
-  │  OSINT &  │  │   IoT &     │  │  Threat &   │  │  Network &  │   │   Analysis   │
-  │  Entity   │  │   Asset     │  │  URL Deep   │  │  VPN Daemon │   │  Correlation │
-  │  Graph    │  │  Discovery  │  │  Scanner    │  │             │   │              │
-  └───────────┘  └─────────────┘  └─────────────┘  └─────────────┘   └──────────────┘
-     Module 2       Module 3          Module 4         Module 5         Module 6
+        ┌───────────────┬────────────────┬───────┴────────┐
+        │               │                │                │
+  ┌─────▼─────┐  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
+  │  OSINT &  │  │   IoT &     │  │  Threat &   │  │  Network &  │
+  │  Entity   │  │   Asset     │  │  URL Deep   │  │  VPN Daemon │
+  │  Graph    │  │  Discovery  │  │  Scanner    │  │             │
+  └───────────┘  └─────────────┘  └─────────────┘  └─────────────┘
+     Module 2       Module 3          Module 4         Module 5
 
                  ┌──────────────────────────────────────────┐
                  │           AuthorizationScope             │
@@ -60,6 +60,28 @@ engine dispatches under a uniform safety policy.
                  │  scope-gated invocation. Default deny.   │
                  └──────────────────────────────────────────┘
 ```
+
+Module 6 is the operator's window onto all of that, and sits *outside* the
+gate rather than beside the tool modules -- it is a client of the same
+dispatcher, holding no privilege of its own:
+
+```
+   browser  ──HTTP+WS──►  ┌───────────────────────────────────┐
+   (operator)             │      Web Operations Dashboard     │  Module 6
+                          │  auth gate · routes · UI · state  │
+                          └────┬─────────────────────┬────────┘
+                               │ invokes             │ projects
+                               │                     │
+                   ┌───────────▼───────────┐   ┌─────▼──────────────┐
+                   │    ToolDispatcher     │   │  DashboardState    │
+                   │   (same safety gate)  │   │  bounded, derived, │
+                   └───────────────────────┘   │  authoritative for │
+                                               │  nothing           │
+                                               └────────────────────┘
+```
+
+The dashboard cannot widen scope: `AuthorizationScope` is built once from
+server-side configuration at start-up, and no request body can reach it.
 
 ## Directory tree
 
@@ -125,9 +147,6 @@ autonomous-security-intelligence-assistant/
 │   │   ├── sandbox.py                           container browser + static fallback
 │   │   ├── analyzer.py                          phishing/typosquat/homoglyph rules
 │   │   └── tools.py                             six @tool registrations
-│   ├── threat_scanner/                 [legacy]  superseded by threat/
-│   │   └── scanner.py                  [built]   placeholder
-│   │
 │   ├── network/                        [built]  Module 5 — VPN & system automation
 │   │   ├── commands.py                          privileged-command boundary (dry-run default)
 │   │   ├── vpn.py                               tunnel lifecycle + recovery state machine
@@ -139,16 +158,15 @@ autonomous-security-intelligence-assistant/
 │   │   └── service.py                           asyncio loop + worker restart budgets
 │   ├── cli.py                          [built]  unified Typer + Rich CLI
 │   ├── main.py                         [built]  process entry point
-│   ├── analysis/                       [planned] Module 6 — correlation, scoring
-│   │   ├── correlate.py
-│   │   └── severity.py
-│   │
-│   ├── reporting/                      [planned] Module 7 — report rendering
-│   │   ├── models.py
-│   │   └── renderers/                            json, markdown, html
-│   │
-│   └── orchestrator.py                 [built]   legacy sync pipeline (superseded
-│                                                 by core/orchestrator.py)
+│   └── web/                           [built]  Module 6 — operations dashboard
+│       ├── __init__.py                          public API surface
+│       ├── auth.py                              secret gate, signed sessions
+│       ├── state.py                             projection + telemetry broadcaster
+│       ├── app.py                               FastAPI routes and WebSocket
+│       ├── ui.py                                the single-document console
+│       └── server.py                            bind validation + uvicorn launch
+│
+│   (planned) analysis/ — correlation & severity;  reporting/ — renderers
 │
 ├── tests/
 │   ├── unit/
@@ -164,16 +182,24 @@ autonomous-security-intelligence-assistant/
 │   │   ├── test_osint_graph.py         [built]
 │   │   ├── test_osint_collectors.py    [built]
 │   │   ├── test_osint_correlator.py    [built]
-│   │   └── test_orchestrator.py        [built]   legacy pipeline
+│   │   ├── test_iot_*.py               [built]
+│   │   ├── test_threat_*.py            [built]
+│   │   ├── test_network_*.py           [built]
+│   │   ├── test_daemon_*.py            [built]
+│   │   ├── test_cli.py                 [built]
+│   │   ├── test_web_auth.py            [built]   the gate, in isolation
+│   │   ├── test_web_state.py           [built]   bounds and back-pressure
+│   │   └── test_web_app.py             [built]   every route, authenticated
 │   └── integration/
 │       ├── test_osint_pipeline.py      [built]   core + OSINT end to end
-│       └── test_pipeline.py            [built]
+│       └── test_full_assistant.py      [built]   all modules, one run
 │
 ├── config/
 │   ├── config.yaml                     [built]   runtime config + engagement scope
 │   └── logging.yaml                    [built]
 ├── docs/
 │   └── architecture.md                 [built]   this file
+├── Makefile                            [built]   setup · test · lint · dashboard
 ├── .env.example                        [built]
 ├── pyproject.toml                      [built]
 ├── requirements.txt                    [built]   application scaffolding
@@ -608,3 +634,84 @@ The legacy placeholder layer is retired: `osint/engine.py`, `iot_recon/`,
 `orchestrator.py` that tied them together (it imported all three and could not
 survive their removal). `ruff format` is now a CI gate alongside `ruff check`,
 `mypy --strict` and `pytest`; the whole tree was formatted in the same change.
+
+---
+
+## Module 6 — Web Operations Dashboard
+
+`src/security_assistant/web/` is a self-hosted operations console: an entity
+graph explorer, an IoT asset grid, a URL detonation HUD, VPN and kill-switch
+control, and a streaming agent console. It is the only part of the system a
+non-terminal user ever sees, which is exactly why it is the part with the
+least authority.
+
+### It is a client, not a privilege
+
+Every route that does anything goes back through `ToolDispatcher`. The
+dashboard holds no capability the CLI does not: the same registry, the same
+`AuthorizationScope`, the same risk cap, the same audit trail.
+
+The scope is built **once**, at start-up, from `--scope` and
+`ENGAGEMENT_ALLOW`. No request body carries a target list, and no route
+accepts one — a target the operator types into the browser is dispatched
+against the server's scope and denied if it is not in it. A compromised
+browser session can therefore drive the assistant, but cannot point it
+somewhere it was not already authorized to look.
+
+### Authentication (`auth.py`)
+
+| Decision | Why |
+| --- | --- |
+| No default secret — refuses to start without `DASHBOARD_SECRET_KEY` | A generated-on-boot default lands in a log nobody reads; a hardcoded one ships in every deployment |
+| 32-character minimum, enforced | Larger than anyone types by hand, which is the point: the documented path is `generate_secret()` |
+| `hmac.compare_digest` on every token check | A timing side channel would recover the secret one byte at a time |
+| Cookies signed (`HttpOnly`, `SameSite=Strict`), never encrypted, carrying no privilege | The cookie proves only that the holder presented the token; the signature is re-verified on every request |
+| `Secure` set only when *not* on loopback | A `Secure` cookie is never sent over plain http, so setting it on `127.0.0.1` locks the operator out of their own dashboard rather than protecting anything |
+
+The WebSocket at `/ws` verifies the session **before** `accept()`, so an
+unauthenticated client never reaches an open socket.
+
+### Refusing the one dangerous combination
+
+`build_config()` allows a non-loopback bind (behind a reverse proxy, that is a
+real deployment) and warns loudly. It **refuses** a non-loopback bind together
+with `--execute`, which would publish privileged VPN and firewall control to
+the network. Bind to `127.0.0.1` and reach it over an SSH tunnel instead.
+
+### The page vendors nothing (`ui.py`)
+
+The console is one self-contained HTML document: hand-written CSS, a canvas
+force-directed graph, a canvas risk gauge, a canvas sparkline. No CDN, no
+Tailwind build, no Cytoscape bundle.
+
+Two reasons, and only the second is about taste. A SOC console is often run
+air-gapped, where a CDN-dependent page renders as unstyled text. And a page
+that can engage a kill-switch should not be one supply-chain compromise away
+from an attacker's script — the CSP is `default-src 'none'` with no external
+origin, which is only honest if the page genuinely needs none.
+
+### State is a projection, and it is bounded (`state.py`)
+
+`DashboardState` holds what the dashboard *displays*, rebuilt from module
+output. The graph, the tunnel state and the audit trail live in their own
+modules; a bug here can show the wrong thing, but cannot corrupt what the
+assistant knows.
+
+Everything is a `deque(maxlen=...)`: 500 events, 500 assets, 100 scans, 2000
+console lines. A dashboard left open for a week on a busy engagement must not
+be the reason the daemon runs out of memory.
+
+`Broadcaster.publish()` never awaits. Each client has a 64-frame queue and a
+client that stops draining has frames dropped rather than applying
+back-pressure to the producer. Telemetry is a live view: a stalled browser tab
+losing frames is correct, and blocking the daemon's health loop behind it
+would not be.
+
+### Launching it
+
+```bash
+export DASHBOARD_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+security-assistant dashboard --scope example.com --open-browser
+```
+
+`make run-dashboard` does the same and refuses without the secret set.

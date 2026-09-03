@@ -32,6 +32,10 @@ rich = "^13.7"
 structlog = "^24.4"
 tenacity = "^9.0"
 
+# --- Module 6: web operations dashboard ---
+fastapi = ">=0.115"
+uvicorn = { version = ">=0.30", extras = ["standard"] }
+
 # --- Module 2: OSINT & Entity Graph (optional) ---
 dnspython = { version = "^2.6", optional = true }
 python-whois = { version = "^0.9", optional = true }

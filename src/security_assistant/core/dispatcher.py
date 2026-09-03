@@ -399,7 +399,7 @@ class ToolDispatcher:
                     attempts=attempt,
                     metadata=auth_metadata,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - one failing tool must not sink the run
                 last_error = exc
                 logger.warning(
                     "Tool error name=%s attempt=%d/%d error=%s correlation_id=%s",

@@ -84,6 +84,7 @@ app.add_typer(vpn_app)
 __all__ = [
     "app",
     "build_scope",
+    "dashboard",
     "main",
     "run_iot_recon",
     "run_osint_recon",
@@ -537,6 +538,89 @@ def privileges(
 
 
 # --------------------------------------------------------------------------- #
+# dashboard
+# --------------------------------------------------------------------------- #
+@app.command("dashboard")
+def dashboard(
+    host: Annotated[
+        str, typer.Option("--host", help="Bind address. Loopback by default.")
+    ] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Bind port.")] = 8443,
+    scope: Annotated[
+        list[str] | None,
+        typer.Option("--scope", help="Authorized targets. Empty authorizes nothing."),
+    ] = None,
+    max_risk: Annotated[str, typer.Option("--max-risk")] = "active",
+    execute: Annotated[
+        bool,
+        typer.Option(
+            "--execute",
+            help=(
+                "Allow real VPN/firewall commands. Refused when combined with a non-loopback bind."
+            ),
+        ),
+    ] = False,
+    allow_static_fallback: Annotated[bool, typer.Option("--allow-static-fallback")] = False,
+    interface: Annotated[str, typer.Option("--interface", "-i")] = "wg0",
+    backend: Annotated[str, typer.Option("--backend")] = "wireguard",
+    admin_cidr: Annotated[
+        list[str] | None,
+        typer.Option("--admin-cidr", help="Networks the kill-switch must preserve."),
+    ] = None,
+    open_browser: Annotated[
+        bool, typer.Option("--open-browser", help="Open a browser once bound.")
+    ] = False,
+) -> None:
+    """Serve the private web operations dashboard.
+
+    Requires DASHBOARD_SECRET_KEY. The console dispatches agent runs and can
+    change VPN and firewall state, so it refuses to start unauthenticated.
+    """
+    from security_assistant.web import build_config, describe_startup, serve
+    from security_assistant.web.auth import AuthError, generate_secret
+    from security_assistant.web.server import ServerError
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(name)s: %(message)s")
+
+    try:
+        settings = build_config(
+            host=host,
+            port=port,
+            scope=tuple(scope or []),
+            max_risk=max_risk,
+            execute=execute,
+            allow_static_fallback=allow_static_fallback,
+            interface=interface,
+            backend=backend,
+            admin_cidrs=tuple(admin_cidr or []),
+        )
+    except AuthError as exc:
+        err_console.print(f"[bold red]error:[/bold red] {exc}")
+        err_console.print(
+            f"\n[dim]For example:[/dim]\n  export DASHBOARD_SECRET_KEY={generate_secret()}"
+        )
+        raise typer.Exit(2) from exc
+    except ServerError as exc:
+        _fail(str(exc), 2)
+        return
+
+    console.print(
+        Panel(
+            "\n".join(describe_startup(settings)),
+            title="security-assistant dashboard",
+            expand=False,
+        )
+    )
+    if not settings.loopback_only:
+        console.print(
+            "[yellow]warning:[/yellow] bound off-loopback. Put TLS and a reverse "
+            "proxy in front of it and restrict the source range."
+        )
+
+    serve(settings, open_browser=open_browser)
+
+
+# --------------------------------------------------------------------------- #
 # run-daemon
 # --------------------------------------------------------------------------- #
 @app.command("run-daemon")
@@ -616,14 +700,20 @@ def version() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns a process exit code."""
     try:
-        app(args=list(argv) if argv is not None else None, standalone_mode=False)
+        # With ``standalone_mode=False`` Click handles ``typer.Exit`` itself
+        # and *returns* the code instead of raising it. Ignoring the return
+        # value here would turn every deliberate failure -- a refused bind, a
+        # missing secret -- into exit 0, which a systemd unit or a Makefile
+        # would read as success. The ``except`` below stays for the paths that
+        # raise before Click's own handler runs.
+        result = app(args=list(argv) if argv is not None else None, standalone_mode=False)
     except typer.Exit as exc:
         return int(exc.exit_code)
     except KeyboardInterrupt:  # pragma: no cover - interactive
         err_console.print("[yellow]interrupted[/yellow]")
         return 130
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI boundary: every failure becomes exit 1
         err_console.print(f"[bold red]error:[/bold red] {exc}")
         logger.debug("CLI failed", exc_info=True)
         return 1
-    return 0
+    return result if isinstance(result, int) else 0

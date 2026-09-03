@@ -1,166 +1,266 @@
 # Autonomous Security & Intelligence Assistant
 
-A modular, autonomous assistant for authorized security assessments —
-combining OSINT collection, IoT reconnaissance, threat correlation, and
-controlled network egress under a single orchestrator.
+An asynchronous agent platform for **authorized** security assessments: OSINT
+collection into a link graph, IoT asset discovery, URL threat analysis behind a
+container sandbox, VPN lifecycle management, and a private web operations
+console over all of it.
 
-> **Scope of use:** This project is intended for authorized security
-> testing, defensive research, and CTF/educational use only, against
-> assets you own or have explicit written permission to assess. It does
-> not ship exploit payloads or automated attack capability.
+```
+ruff · ruff format · mypy --strict · pytest (3.11 / 3.12 / 3.13)   — all green
+~32,300 lines · 1,072 tests
+```
 
-## System Overview
+---
 
-The assistant runs a pipeline against a single authorized target:
+## The idea
 
-1. **Reconnaissance** — OSINT and IoT recon engines gather information
-   about the target in parallel.
-2. **Correlation** — the threat scanner matches discovered assets and
-   services against vulnerability/threat-intel feeds.
-3. **Reporting** — results are aggregated by the orchestrator for review.
+Security capabilities are **tools registered with a dispatcher**, not features
+wired into an engine. A capability declares what it is — its risk level, what
+it produces and consumes, its rate limit and timeout — and the engine does the
+rest: planning, concurrency, authorization, retries, audit.
 
-All outbound scan traffic is routed through a managed VPN daemon so the
-assistant's network posture stays controlled and auditable.
+That bet is what let Modules 2–6 add twenty capabilities and a web console
+**without a single change to the core**.
 
-## Core Architecture
+```
+                        ┌──────────────────────────────┐
+                        │   CLI  ·  Web Dashboard      │
+                        └──────────────┬───────────────┘
+                                       │
+                        ┌──────────────▼───────────────┐
+                        │      Agent Orchestrator      │   Module 1
+                        │  plan → authorize → dispatch │
+                        │  ┌────────────────────────┐  │
+                        │  │  AuthorizationScope    │  │ ← every call
+                        │  │  default deny          │  │   passes here
+                        │  │  denies beat allows    │  │
+                        │  │  risk cap per engagement│ │
+                        │  └────────────────────────┘  │
+                        └──┬────────┬────────┬─────────┘
+                           │        │        │
+              ┌────────────▼──┐ ┌───▼─────┐ ┌▼──────────────┐
+              │  OSINT   (2)  │ │ IoT (3) │ │  Threat  (4)  │
+              │ dns whois tls │ │ shodan  │ │ vt urlscan    │
+              │ social        │ │ scan    │ │ sandbox       │
+              └────────┬──────┘ └───┬─────┘ └──────┬────────┘
+                       │            │              │
+                       └────────────▼──────────────┘
+                            ┌───────────────┐
+                            │ Entity Graph  │  one graph, ten node types
+                            │ NetworkX/Neo4j│  findings converge here
+                            └───────────────┘
 
-| Component | Location | Responsibility |
+              ┌───────────────────────────────────────────┐
+              │ Network & Daemon (5)                      │
+              │ VPN lifecycle · kill-switch · leak checks │
+              │ health · worker supervision · heartbeat   │
+              └───────────────────────────────────────────┘
+```
+
+### Why findings converge
+
+Every module writes into the same graph, and they meet at shared nodes without
+any cross-module wiring:
+
+```
+url:https://paypa1.com/login ──SERVED_BY──▶ domain:paypa1.com
+        └──REDIRECTS_TO──▶ url:https://collector.example/harvest
+                                  └──SERVED_BY──▶ domain:collector.example
+                                                         │ RESOLVES_TO
+                                                         ▼
+   iot_device:192.0.2.10 ──RUNS_ON──▶ ip_address:192.0.2.10
+        └──EXPOSES_SERVICE──▶ network_service:192.0.2.10:554/rtsp
+```
+
+"Whose exposed camera is this, and is it on the infrastructure that phishing
+URL redirects to?" is a `graph.shortest_path()` call.
+
+---
+
+## Safety model
+
+This is dual-use tooling. Four properties are structural, not advisory.
+
+**Default deny.** An empty scope authorizes nothing. Forgetting `--scope` is a
+refusal, not an unbounded scan. Denies always beat allows.
+
+**Risk is capped per engagement.**
+
+| Level | Meaning | Examples |
 |---|---|---|
-| **Agent core** | `src/security_assistant/core/` | The engine: async orchestrator, tool dispatch, planner, memory, and the authorization gate. |
-| **OSINT Engine** | `src/security_assistant/osint/` | Collects open-source intelligence: domains, subdomains, breach exposure, public records. |
-| **IoT Recon** | `src/security_assistant/iot_recon/` | Fingerprints and inventories IoT/embedded devices on an authorized network. |
-| **Threat Scanner** | `src/security_assistant/threat_scanner/` | Correlates recon output against known vulnerability and threat-intel feeds. |
-| **Network/VPN Daemon** | `src/security_assistant/network/` | Manages VPN connection lifecycle and kill-switch for scan traffic. |
+| `PASSIVE` | Never contacts the target | WHOIS, VirusTotal, Shodan |
+| `ACTIVE` | Contacts it non-intrusively | DNS, TLS, port scan, sandbox load |
+| `INTRUSIVE` | May change state or trip alerting | control-port probes |
 
-Security capabilities are not hard-wired into the engine — they are *tools*
-registered with a `ToolRegistry` and dispatched under a uniform safety policy.
-The core depends on nothing outside the standard library.
+A passive-only engagement *cannot* run an active scan, enforced in the
+dispatcher above every tool — a tool author cannot forget to check.
 
-See [`docs/architecture.md`](docs/architecture.md) for the full blueprint,
-directory tree, and data-flow diagram.
+**Nothing touches your system by default.** Module 5's default command runner
+records intent and executes nothing. `--execute` is required, and combining it
+with a non-loopback dashboard bind is refused outright.
 
-## Authorization model
+**Honest negatives.** A check that could not run reports `UNKNOWN`, never `OK`.
+A leak report with unperformed checks says *inconclusive*, never *protected*.
+An unreadable health metric is `None`, never `0`.
 
-Scope enforcement lives in the dispatcher, above every tool, so a tool author
-cannot forget to check it:
+---
 
-- **Default deny.** An empty scope authorizes nothing.
-- **Denies beat allows.** A denied target is refused even if an allow rule also matches.
-- **Risk is capped.** A scope declares the most intrusive class of action it permits:
-  `passive` (never contacts the target), `active` (contacts it non-intrusively),
-  or `intrusive` (may change state or trip alerting).
-- **Fails closed.** With no scope configured, scope-gated tools refuse to run.
-- **Audited.** Every invocation records its target and the rule that authorized it.
+## Quickstart
 
-Configure it in the `engagement:` block of `config/config.yaml` (or via the
-`ENGAGEMENT_*` environment variables). It is a safeguard that makes the boundary
-enforceable in code — not a substitute for having permission in the first place.
-
-```python
-from security_assistant.core import Agent, AuthorizationScope, RiskLevel, ToolRegistry
-
-scope = AuthorizationScope(
-    allow=["example.com", "192.0.2.0/24"],
-    deny=["prod.example.com"],
-    max_risk=RiskLevel.ACTIVE,
-    authorization_reference="ENG-2024-114",
-)
-
-agent = Agent(registry, scope)
-result = await agent.run("Map external attack surface", target="example.com")
-print(result.summary())
-```
-
-## Repository Layout
-
-```
-.
-├── src/security_assistant/
-│   ├── core/                 # Agent engine: orchestrator, dispatch, planner, memory
-│   ├── osint/                # OSINT & entity graph
-│   ├── iot_recon/            # IoT & asset discovery
-│   ├── threat_scanner/       # Threat intel & URL scanning
-│   └── network/              # VPN lifecycle & kill-switch
-├── config/                   # YAML configs, logging config, engagement scope
-├── tests/                    # Unit and integration tests
-├── docs/                     # Architecture blueprints
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-├── requirements.txt          # application scaffolding
-├── requirements-modules.txt  # optional per-module extras
-└── .env.example
-```
-
-## Setup & Local Run
-
-### Requirements
-
-- Python 3.11+
-- [Poetry](https://python-poetry.org/) (recommended) or `pip`
-- Docker (optional, for containerized runs)
-
-### Option A — Poetry
+### 1. Install
 
 ```bash
-poetry install
-cp .env.example .env      # fill in real values
-poetry run pytest
-poetry run python -m security_assistant
-```
+git clone https://github.com/sahilsharma0309/autonomous-security-intelligence-assistant
+cd autonomous-security-intelligence-assistant
 
-### Option B — pip + venv
-
-```bash
-python3.11 -m venv .venv
+make setup                 # venv + runtime + dev dependencies
 source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env      # fill in real values
-pytest
-python -m security_assistant
+
+make setup-all             # optional: every feature extra (dnspython, shodan, …)
 ```
 
-Feature modules pull in extra dependencies. Install only what you enable:
+The core engine and the full test suite need **no** optional package: all
+network I/O is injected, so `make check` passes on a bare interpreter.
+
+### 2. Configure
 
 ```bash
-poetry install -E osint -E iot          # or: -E all
-pip install -r requirements-modules.txt # pip equivalent (all modules)
+cp .env.example .env
 ```
 
-### Option C — Docker
+At minimum set your engagement scope — everything is denied without it:
 
 ```bash
-cp .env.example .env      # fill in real values
-docker compose up --build
+ENGAGEMENT_ALLOW=example.com,*.example.com,192.0.2.0/24
+ENGAGEMENT_MAX_RISK=active
+ENGAGEMENT_AUTHORIZATION_REF=SOW-2026-114
 ```
 
-## Configuration
-
-- Non-secret runtime settings live in `config/config.yaml`.
-- Logging is configured in `config/logging.yaml`.
-- Secrets (API keys, VPN credentials, webhook URLs) are supplied via
-  environment variables — copy `.env.example` to `.env` and fill it in.
-  `.env` is git-ignored and must never be committed.
-
-## Testing
+### 3. Create the sandbox network (before any URL detonation)
 
 ```bash
-pytest                      # full suite
-pytest tests/unit           # unit tests only
-pytest tests/integration    # integration tests only
+make sandbox-network       # docker network create sandbox-egress
 ```
 
-Static analysis (both are clean on `main`):
+Restrict that network so it reaches the public internet and has **no route to
+this host or to internal ranges** — that boundary is what actually contains a
+hostile page. Without a container runtime the sandbox **fails closed**; pass
+`--allow-static-fallback` to accept script-free HTTP inspection instead.
+
+### 4. Run
 
 ```bash
-ruff check src/ tests/      # lint
-mypy src/                   # strict type checking
+# OSINT collection → entity graph
+security-assistant recon osint example.com
+
+# Asset discovery within an authorized engagement
+security-assistant recon iot 'product:"IP Camera"' --target 192.0.2.10
+
+# URL threat assessment
+security-assistant scan url https://suspicious.example/login
+
+# VPN (dry run unless --execute)
+security-assistant vpn status
+security-assistant vpn connect --execute
+
+# What sudo grants that needs — review before installing
+security-assistant privileges --interface wg0 > /tmp/sa.sudoers
+visudo -c -f /tmp/sa.sudoers
+
+# Background daemon
+security-assistant run-daemon
 ```
 
-The agent core needs no third-party packages, so its tests run in a bare
-Python 3.11 environment with only `pytest` installed.
+Add `--json` to any command for machine-readable output.
 
-## License
+### 5. Launch the dashboard
 
-Private project — all rights reserved unless a `LICENSE` file states
-otherwise.
+```bash
+export DASHBOARD_SECRET_KEY=$(make -s secret)
+
+security-assistant dashboard \
+  --host 127.0.0.1 --port 8443 \
+  --scope example.com \
+  --open-browser
+```
+
+Open <http://127.0.0.1:8443/> and authenticate with that key.
+
+| Panel | What it does |
+|---|---|
+| **Graph** | Force-directed entity graph, click-to-inspect, JSON/Cypher export |
+| **Assets** | IoT grid — services, banners, vendor; filter by port or service |
+| **Threat** | URL detonation with a risk gauge, findings, redirect chain, sandbox capture |
+| **Network** | Tunnel state, kill-switch, leak badge, live health telemetry |
+| **Console** | Dispatch agent runs, streaming log over WebSocket |
+
+**The dashboard is a remote-control surface.** It refuses to start without
+`DASHBOARD_SECRET_KEY` (min 32 chars), binds to loopback by default, and
+**refuses a non-loopback bind combined with `--execute`**. To reach it from
+another machine, tunnel rather than expose:
+
+```bash
+ssh -L 8443:127.0.0.1:8443 user@host
+```
+
+It vendors nothing from a CDN, so its Content-Security-Policy forbids every
+external origin and it works on an isolated network.
+
+---
+
+## Development
+
+```bash
+make check          # lint + format-check + typecheck + test, in CI's order
+make test           # pytest
+make lint           # ruff check
+make format         # apply ruff format
+make typecheck      # mypy --strict
+```
+
+A clean `make check` is what CI runs, so it means a green PR.
+
+```
+src/security_assistant/
+├── core/        Module 1 — orchestrator, dispatch, authorization, planner, memory
+├── osint/       Module 2 — collectors, entity graph, correlation
+├── iot/         Module 3 — Shodan, scanning, fingerprints, stream discovery
+├── threat/      Module 4 — VirusTotal, URLScan, sandbox, analyzer, SSRF guard
+├── network/     Module 5 — VPN, kill-switch, leaks, privileges
+├── daemon/      Module 5 — health, worker supervision, heartbeat
+├── web/         Module 6 — FastAPI dashboard, auth, telemetry
+└── cli.py       Unified Typer + Rich CLI
+```
+
+---
+
+## Operational notes
+
+Read these before running against anything real.
+
+- **`VPN_ADMIN_CIDRS` on a remote host.** The kill-switch lockout guard always
+  preserves loopback, established connections and the VPN endpoint, but it
+  cannot know the range you SSH from. Set it, or you can lock yourself out
+  permanently. Engaging the switch also arms a dead-man's-switch rollback:
+  unconfirmed rules revert automatically.
+- **The VPN and firewall code has never been run against live infrastructure
+  in this repository.** Every system call is behind an injected runner in
+  tests. The parsers are tested against realistic fixtures, but first contact
+  with a real `wg` will find things. Stage it on a machine you can physically
+  reach.
+- **`osint.social` ships with no platforms configured.** Username enumeration
+  is the part of OSINT most easily turned against an individual, so the
+  operator registers targets explicitly and it is scope-gated on the
+  engagement domain.
+- **`threat.urlscan_submit` is ACTIVE**, because urlscan.io fetching the target
+  on your behalf still puts a visit in the target's logs. Submissions default
+  to `unlisted` so a lookup does not publish what you are investigating.
+
+---
+
+## Licence & intended use
+
+For authorized security assessment only: systems you own, or have written
+permission to test. The authorization scope, risk levels and audit trail exist
+to make that boundary explicit and enforceable — they are not a substitute for
+having permission.
