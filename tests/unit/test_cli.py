@@ -192,3 +192,16 @@ class TestMainEntryPoint:
         from security_assistant.main import main as module_main
 
         assert module_main(["version"]) == 0
+
+    def test_a_deliberate_failure_reaches_the_process_exit_code(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A refused start must not exit 0.
+
+        Click handles ``typer.Exit`` itself when ``standalone_mode`` is off and
+        returns the code rather than raising it, so ``main`` has to read the
+        return value. Otherwise a systemd unit or a Makefile reads a refusal as
+        success and never restarts, never alerts.
+        """
+        monkeypatch.delenv("DASHBOARD_SECRET_KEY", raising=False)
+        assert main(["dashboard", "--scope", "example.com"]) == 2
