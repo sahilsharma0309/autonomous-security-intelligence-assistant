@@ -51,17 +51,33 @@ __all__ = [
     "Observation",
     "Relationship",
     "combine_confidence",
+    "hash_algorithm",
     "normalize_device",
     "normalize_domain",
     "normalize_email",
+    "normalize_file_hash",
     "normalize_host",
     "normalize_organization",
     "normalize_phone",
     "normalize_service",
     "normalize_social_handle",
+    "normalize_url",
 ]
 
 _WHITESPACE_RE = re.compile(r"\s+")
+
+# Ports that are implied by their scheme and so dropped from the canonical
+# form -- https://example.com:443/ and https://example.com/ are one URL.
+_DEFAULT_PORTS: dict[str, tuple[int, ...]] = {
+    "http": (80,),
+    "https": (443,),
+    "ftp": (21,),
+    "ws": (80,),
+    "wss": (443,),
+}
+
+# Digest length -> algorithm. Length is unambiguous across these three.
+_HASH_LENGTHS: dict[int, str] = {32: "md5", 40: "sha1", 64: "sha256"}
 _NON_PHONE_RE = re.compile(r"[^0-9+]")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -85,6 +101,11 @@ class EntityType(StrEnum):
     with OSINT findings directly -- a camera at ``192.0.2.10`` and a domain
     resolving to that same address meet at the shared ``ip_address`` node
     rather than living in two disconnected inventories.
+
+    ``URL`` and ``FILE_HASH`` extend the same idea to threat intelligence: a
+    phishing URL and the domain it abuses meet at the shared ``domain`` node,
+    so "is this URL on infrastructure we already know about?" is a graph
+    traversal rather than a separate lookup.
     """
 
     EMAIL = "email"
@@ -95,6 +116,8 @@ class EntityType(StrEnum):
     ORGANIZATION = "organization"
     IOT_DEVICE = "iot_device"
     NETWORK_SERVICE = "network_service"
+    URL = "url"
+    FILE_HASH = "file_hash"
 
 
 class EdgeType(StrEnum):
@@ -144,6 +167,18 @@ class EdgeType(StrEnum):
 
     MANUFACTURED_BY = "manufactured_by"
     """iot_device -> organization (vendor inferred from a banner)."""
+
+    REDIRECTS_TO = "redirects_to"
+    """url -> url (one hop of a redirect chain)."""
+
+    SERVED_BY = "served_by"
+    """url -> domain|ip_address (the host the URL is fetched from)."""
+
+    CONTACTS = "contacts"
+    """url -> domain (a third-party host the page reached during load)."""
+
+    REFERENCES_FILE = "references_file"
+    """url -> file_hash (a resource the page served or offered)."""
 
     SAME_AS = "same_as"
     """Entity resolution: two nodes are believed to be the same real thing."""
@@ -431,6 +466,88 @@ def normalize_service(value: str) -> str:
     return f"{normalized_host}:{port}/{protocol}"
 
 
+def normalize_url(value: str) -> str:
+    """Canonicalize a URL.
+
+    Lowercases the scheme and host, IDNA-encodes the host, drops the default
+    port for the scheme, removes a fragment (it never reaches the server), and
+    keeps the path, query and credentials as observed.
+
+    Normalization here is security-relevant, not cosmetic: the canonical host
+    is what a scope check reads, so a form that quietly disagreed with what
+    the fetcher would actually contact would let a URL slip past
+    authorization. The host is therefore normalized exactly as
+    :func:`normalize_domain` does it, and an unparseable URL is rejected
+    rather than passed through.
+
+    >>> normalize_url("HTTP://Example.COM:80/Path?b=1#frag")
+    'http://example.com/Path?b=1'
+    >>> normalize_url("https://example.com")
+    'https://example.com/'
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    text = value.strip()
+    if not text:
+        raise ValueError("URL must not be empty")
+
+    parts = urlsplit(text)
+    scheme = parts.scheme.lower()
+    if not scheme:
+        raise ValueError(f"URL {value!r} has no scheme")
+    if not parts.hostname:
+        raise ValueError(f"URL {value!r} has no host")
+
+    try:
+        host = normalize_domain(parts.hostname)
+    except ValueError:
+        host = parts.hostname.lower()
+    # An IPv6 literal must stay bracketed to remain re-parseable.
+    if ":" in host:
+        host = f"[{host}]"
+
+    netloc = host
+    if parts.port is not None and parts.port not in _DEFAULT_PORTS.get(scheme, ()):
+        netloc = f"{host}:{parts.port}"
+    if parts.username:
+        credentials = parts.username
+        if parts.password:
+            credentials = f"{credentials}:{parts.password}"
+        netloc = f"{credentials}@{netloc}"
+
+    path = parts.path or "/"
+    # The fragment is deliberately dropped: it is never sent to the server, so
+    # two URLs differing only by fragment are the same request.
+    return urlunsplit((scheme, netloc, path, parts.query, ""))
+
+
+def normalize_file_hash(value: str) -> str:
+    """Canonicalize a file hash to lowercase hex.
+
+    Accepts MD5, SHA-1 and SHA-256. The length identifies the algorithm, so
+    the digest alone is a sufficient key; anything else is rejected rather
+    than stored as an unusable node.
+
+    >>> normalize_file_hash("  DA39A3EE5E6B4B0D3255BFEF95601890AFD80709 ")
+    'da39a3ee5e6b4b0d3255bfef95601890afd80709'
+    """
+    text = value.strip().lower()
+    if not text:
+        raise ValueError("File hash must not be empty")
+    if len(text) not in _HASH_LENGTHS:
+        raise ValueError(
+            f"Not an MD5/SHA-1/SHA-256 hash (got {len(text)} chars): {value!r}"
+        )
+    if any(c not in "0123456789abcdef" for c in text):
+        raise ValueError(f"File hash contains non-hex characters: {value!r}")
+    return text
+
+
+def hash_algorithm(digest: str) -> str:
+    """Name the algorithm implied by a digest's length."""
+    return _HASH_LENGTHS.get(len(digest.strip()), "unknown")
+
+
 _NORMALIZERS = {
     EntityType.DOMAIN: normalize_domain,
     EntityType.EMAIL: normalize_email,
@@ -438,6 +555,8 @@ _NORMALIZERS = {
     EntityType.ORGANIZATION: normalize_organization,
     EntityType.IOT_DEVICE: normalize_device,
     EntityType.NETWORK_SERVICE: normalize_service,
+    EntityType.URL: normalize_url,
+    EntityType.FILE_HASH: normalize_file_hash,
 }
 
 

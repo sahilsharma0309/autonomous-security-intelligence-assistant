@@ -116,13 +116,17 @@ autonomous-security-intelligence-assistant/
 │   │   ├── banner.py                   [planned] service/banner fingerprinting
 │   │   └── tools.py                    [planned]
 │   │
-│   ├── threat_scanner/                 Module 4 — Threat Intel & URL Scanner
-│   │   ├── scanner.py                  [built]   placeholder
-│   │   ├── url_analysis.py             [planned] redirect chains, reputation
-│   │   ├── tls_inspect.py              [planned] certificate/chain verification
-│   │   ├── sandbox.py                  [planned] headless-browser detonation
-│   │   ├── feeds/                      [planned] VirusTotal, URLScan, NVD clients
-│   │   └── tools.py                    [planned]
+│   ├── threat/                         [built]  Module 4 — Threat Intel & URL Scanner
+│   │   ├── __init__.py                          public API surface
+│   │   ├── models.py                            findings, verdicts, scoring, projection
+│   │   ├── safety.py                            SSRF guard for fetched URLs
+│   │   ├── virustotal.py                        VT client, token bucket, parsing
+│   │   ├── urlscan.py                           URLScan search/submit + parsing
+│   │   ├── sandbox.py                           container browser + static fallback
+│   │   ├── analyzer.py                          phishing/typosquat/homoglyph rules
+│   │   └── tools.py                             six @tool registrations
+│   ├── threat_scanner/                 [legacy]  superseded by threat/
+│   │   └── scanner.py                  [built]   placeholder
 │   │
 │   ├── network/                        Module 5 — Network & VPN
 │   │   ├── vpn_daemon.py               [built]   placeholder
@@ -405,3 +409,98 @@ reports what Shodan last saw, not what is true now.
 `SHODAN_API_KEY` is read from the environment at call time, never passed as a
 tool argument — an argument would land in plan structures, audit records and
 logs. The key is redacted from every error message and `repr`.
+
+## Module 4 — Threat Intelligence & URL Deep Scanner
+
+### Three independent directions
+
+A URL is assessed from evidence that fails independently, so no single source
+can dominate the verdict:
+
+| Direction | Module | Contacts the target? |
+|---|---|---|
+| Heuristics — typosquat, homoglyph, structure, hosting, TLS | `analyzer.py` | No |
+| Reputation — what third parties already know | `virustotal.py`, `urlscan.py` | No |
+| Observation — what the page does when loaded | `sandbox.py` | Yes |
+
+### Tools and risk
+
+| Tool | Risk | Notes |
+|---|---|---|
+| `threat.url_analyze` | PASSIVE | String heuristics; contacts nothing |
+| `threat.virustotal` | PASSIVE | Queries VT's index |
+| `threat.urlscan` | PASSIVE | Searches existing scans |
+| `threat.urlscan_submit` | ACTIVE | urlscan.io fetches the target on our behalf |
+| `threat.url_inspect` | ACTIVE | Loads the page in the sandbox |
+| `threat.url_score` | PASSIVE | Pure aggregation of prior evidence |
+
+`urlscan_submit` is ACTIVE deliberately. The request reaches the target from
+urlscan.io rather than from us, which changes whose address appears in the
+target's logs but not whether the target was contacted. Classifying it passive
+would let a passive-only engagement cause a visit — precisely what the risk
+levels exist to prevent.
+
+### Scoring
+
+Findings are grouped by category, the strongest signal in each category is
+taken, and categories are combined with a noisy-OR. This is not a sum, for two
+reasons: a sum lets a handful of cosmetic observations out-vote one decisive
+finding, and it makes the maximum an artifact of how many heuristics exist.
+Correlated indicators therefore cannot stack — "long URL" and "deep subdomains"
+are both structural, so together they count once plus a small corroboration
+increment.
+
+Severity weights: `low` 0.08, `medium` 0.30, `high` 0.65, `critical` 0.92.
+`info` carries zero weight, so a note like "inspected without a browser"
+records reduced coverage without inflating the score.
+
+### The sandbox boundary
+
+This is the only component that deliberately executes attacker-controlled
+content, so the isolation is the design:
+
+* One throwaway container per URL: `--rm`, non-root `--user`, `--cap-drop=ALL`,
+  `--security-opt no-new-privileges`, `--read-only` with a `noexec,nosuid`
+  tmpfs, `--memory` and `--pids-limit` caps, and **no bind mounts** — results
+  return over stdout.
+* An operator-defined `--network` with restricted egress. This is what actually
+  contains SSRF; the checks in `safety.py` are the second layer.
+* Killed on timeout and again in a `finally`, then awaited, so no container or
+  zombie process outlives the call.
+
+Where Docker is unavailable it degrades to HTTP-only inspection that executes
+nothing, marking the report `engine="static"` and emitting an INFO finding.
+That distinction matters when reading a result: an absent behavioural finding
+then means "not looked for", not "not present".
+
+### SSRF guard (`safety.py`)
+
+Every other module points outward at an operator-named target. This one takes
+a URL chosen by whoever is being investigated, so it is itself an attack
+surface — `http://169.254.169.254/latest/meta-data/` attacks the scanner, not
+the target. Scheme allowlist (http/https only), address denylist (loopback,
+private, link-local, multicast, reserved, and IPv4-mapped IPv6), and a port
+allowlist. Redirects are re-checked at every hop, since a redirect is
+attacker-controlled and is the standard way to walk a fetcher inward.
+
+The documented limit: a hostname is only checked when it is an IP literal or
+when a resolver is supplied, and DNS rebinding can still change the answer
+between check and fetch. The container's network boundary is the durable
+mitigation; this is defence in depth.
+
+### Graph integration
+
+`EntityType` gains `URL` and `FILE_HASH`; `EdgeType` gains `REDIRECTS_TO`,
+`SERVED_BY`, `CONTACTS` and `REFERENCES_FILE`. A URL's host becomes a domain
+or address node, which is the join with everything OSINT and IoT discovered:
+
+```
+url:https://paypa1.com/login ──SERVED_BY──> domain:paypa1.com
+        │
+        └──REDIRECTS_TO──> url:https://collector.example/harvest
+                                   └──SERVED_BY──> domain:collector.example
+                                                          │
+                                        RESOLVES_TO ──────┘
+                                              ↓
+                                   ip_address:203.0.113.77
+```
