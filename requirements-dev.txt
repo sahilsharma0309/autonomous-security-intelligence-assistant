@@ -1,7 +1,30 @@
+# Development and CI tooling.
+#
+# These are PINNED EXACTLY, on purpose.
+#
+# Runtime dependencies (requirements.txt) use floors, because a deployment
+# should pick up security patches. These do not, because they *are* the CI
+# gates: an unpinned linter means a new upstream release can turn a green
+# pull request red without a single line of this repository changing.
+#
+# That is not hypothetical here. ruff 0.16 stopped raising BLE001 on several
+# supervisory `except Exception` boundaries. The `# noqa: BLE001` comments
+# that satisfied 0.15 became unused directives, RUF100 failed the lint job,
+# and main went red on a merge that had passed review.
+#
+# To upgrade: bump one pin, run `make check` locally, and let CI confirm.
+# A tooling upgrade is then its own reviewable commit rather than a surprise
+# on somebody else's pull request.
+#
+# Keep these in step with the local interpreter you run `make check` on --
+# `python -m ruff` and `python -m mypy` use this environment, whereas a bare
+# `ruff` on PATH may be some other install entirely.
+
 -r requirements.txt
-pytest>=8.3
-pytest-cov>=5.0
-pytest-asyncio>=0.24
-ruff>=0.6
-mypy>=1.11
-types-pyyaml>=6.0
+
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-asyncio==1.4.0
+ruff==0.16.5
+mypy==2.3.1
+types-pyyaml==6.0.12.20260815
